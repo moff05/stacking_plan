@@ -8,6 +8,17 @@ from io import BytesIO
 
 st.title("Stacking Plan Generator")
 
+# Template download (from existing file)
+with open("stacking_plan_template.xlsx", "rb") as f:
+    template_data = f.read()
+
+st.download_button(
+    label="📥 Download Excel Template",
+    data=template_data,
+    file_name="stacking_plan_template.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
 # File upload
 uploaded_file = st.file_uploader("Upload your Excel file here (.xlsx)")
 
