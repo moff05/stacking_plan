@@ -53,7 +53,39 @@ if uploaded_file is not None:
         color = cmap(norm(year))
         return mcolors.to_hex(color)
 
+    # -------------------------
+    # 🆕 Calculate occupancy totals
+    # -------------------------
+
+    # Total SF per expiration year (excluding VACANT)
+    year_totals = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT')].groupby('Expiration Year')['Square Footage'].sum()
+
+    # Total SF for No Expiry tenants
+    no_expiry_total = data.loc[data['Expiration Year'].isna() & ~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
+
+    # Total SF for VACANT
+    vacant_total = data.loc[data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
+
+    # Build display string
+    occupancy_summary = []
+
+    for year, total_sf in year_totals.items():
+        occupancy_summary.append(f"{int(year)}: {int(total_sf):,} SF")
+
+    if no_expiry_total > 0:
+        occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
+
+    if vacant_total > 0:
+        occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
+
+    occupancy_text = " | ".join(occupancy_summary)
+
+    # Display occupancy summary in Streamlit
+    st.markdown(f"**Total Square Footage by Expiration Year:** {occupancy_text}")
+
+    # -------------------------
     # Create plot
+    # -------------------------
     fig, ax = plt.subplots(figsize=(25, 14))
     y_pos = 0
     height = 1
@@ -111,9 +143,8 @@ if uploaded_file is not None:
     for year in years:
         color = mcolors.to_hex(cmap(norm(year)))
         legend_elements.append(
-        mpatches.Patch(facecolor=color, edgecolor='black', label=str(int(year)))
+            mpatches.Patch(facecolor=color, edgecolor='black', label=str(int(year)))
         )
-
 
     # Add vacant color patch
     legend_elements.append(
