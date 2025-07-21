@@ -371,7 +371,7 @@ if excel_file_to_process is not None:
 
     plt.tight_layout()
 
-    # Add logo with percentage-based positioning
+    # Add logo with percentage-based positioning relative to the chart area
     if logo_file_to_display is not None:
         logo = Image.open(logo_file_to_display)
         
@@ -388,29 +388,38 @@ if excel_file_to_process is not None:
         
         logo = logo.resize((new_width, new_height), Image.Resampling.LANCZOS)
         
-        # Get figure dimensions in pixels
+        # Get the axes position in figure coordinates
+        bbox = ax.get_position()  # Returns Bbox object with x0, y0, x1, y1 in figure coordinates (0-1)
         fig_width_px = fig.get_figwidth() * fig.dpi
         fig_height_px = fig.get_figheight() * fig.dpi
         
-        # Calculate logo position based on percentage of entire figure
-        # For corner positioning, align logo edges with figure edges
-        if st.session_state.logo_x_percent <= 5:  # Left edge
-            logo_x_px = 0
-        elif st.session_state.logo_x_percent >= 95:  # Right edge
-            logo_x_px = int(fig_width_px - logo.size[0])
-        else:  # Anywhere in between, center the logo on the percentage point
-            logo_x_px = int((st.session_state.logo_x_percent / 100) * fig_width_px - logo.size[0] / 2)
+        # Calculate actual chart area in pixels
+        chart_left_px = bbox.x0 * fig_width_px
+        chart_right_px = bbox.x1 * fig_width_px
+        chart_bottom_px = bbox.y0 * fig_height_px
+        chart_top_px = bbox.y1 * fig_height_px
         
-        if st.session_state.logo_y_percent <= 5:  # Bottom edge
-            logo_y_px = 0
-        elif st.session_state.logo_y_percent >= 95:  # Top edge
-            logo_y_px = int(fig_height_px - logo.size[1])
-        else:  # Anywhere in between, center the logo on the percentage point
-            logo_y_px = int((st.session_state.logo_y_percent / 100) * fig_height_px - logo.size[1] / 2)
+        chart_width_px = chart_right_px - chart_left_px
+        chart_height_px = chart_top_px - chart_bottom_px
         
-        # Ensure logo stays within figure bounds
-        logo_x_px = max(0, min(logo_x_px, int(fig_width_px - logo.size[0])))
-        logo_y_px = max(0, min(logo_y_px, int(fig_height_px - logo.size[1])))
+        # Calculate logo position based on percentage within the chart area
+        if st.session_state.logo_x_percent <= 5:  # Left edge - align left edge of logo with left edge of chart
+            logo_x_px = int(chart_left_px)
+        elif st.session_state.logo_x_percent >= 95:  # Right edge - align right edge of logo with right edge of chart
+            logo_x_px = int(chart_right_px - logo.size[0])
+        else:  # Anywhere in between, position relative to chart area
+            logo_x_px = int(chart_left_px + (st.session_state.logo_x_percent / 100) * chart_width_px - logo.size[0] / 2)
+        
+        if st.session_state.logo_y_percent <= 5:  # Bottom edge - align bottom edge of logo with bottom edge of chart
+            logo_y_px = int(chart_bottom_px)
+        elif st.session_state.logo_y_percent >= 95:  # Top edge - align top edge of logo with top edge of chart
+            logo_y_px = int(chart_top_px - logo.size[1])
+        else:  # Anywhere in between, position relative to chart area
+            logo_y_px = int(chart_bottom_px + (st.session_state.logo_y_percent / 100) * chart_height_px - logo.size[1] / 2)
+        
+        # Ensure logo stays within chart bounds
+        logo_x_px = max(int(chart_left_px), min(logo_x_px, int(chart_right_px - logo.size[0])))
+        logo_y_px = max(int(chart_bottom_px), min(logo_y_px, int(chart_top_px - logo.size[1])))
         
         fig.figimage(logo, xo=logo_x_px, yo=logo_y_px, alpha=1, zorder=10)
 
