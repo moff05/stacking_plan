@@ -31,6 +31,17 @@ end_color = st.color_picker("🎨 Choose end color (latest expiration year)", "#
 # 🖼️ Logo upload
 logo_file = st.file_uploader("Upload a logo image (PNG or JPG) to include on the stacking plan", type=["png", "jpg", "jpeg"])
 
+# 🖼️ Logo position adjustment sliders
+if logo_file is not None:
+    st.subheader("🔧 Adjust Logo Position")
+
+    logo_x = st.slider("Logo X position (pixels from left)", min_value=0, max_value=1000, value=50, step=10)
+    logo_y = st.slider("Logo Y position (pixels from bottom)", min_value=0, max_value=1000, value=50, step=10)
+
+    # Optional: Logo size slider
+    logo_size = st.slider("Logo max size (pixels)", min_value=50, max_value=500, value=150, step=10)
+
+
 # File upload for stacking data
 uploaded_file = st.file_uploader("Upload your Excel file here (.xlsx)")
 
@@ -141,8 +152,9 @@ if uploaded_file is not None:
     # Add logo to figure if uploaded
     if logo_file is not None:
         logo = Image.open(logo_file)
-        logo.thumbnail((150, 150))  # Resize for consistency
-        fig.figimage(logo, xo=50, yo=50, alpha=1, zorder=10)  # bottom left placement
+        logo.thumbnail((logo_size, logo_size))  # Resize dynamically based on user input
+        fig.figimage(logo, xo=logo_x, yo=logo_y, alpha=1, zorder=10)
+
 
     # Legend for colors at bottom
     legend_elements = []
