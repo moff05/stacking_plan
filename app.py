@@ -25,9 +25,9 @@ DEFAULTS = {
     'logo_size': 150,
     'building_name': "My Building",
     'excel_file_content': None, # To store the binary content of the Excel file
-    'excel_file_name': None,    # To store the name of the Excel file
+    'excel_file_name': None,   # To store the name of the Excel file
     'logo_file_content': None, # To store the binary content of the logo
-    'logo_file_type': None      # To store the type of the logo
+    'logo_file_type': None     # To store the type of the logo
 }
 
 # Initialize ALL session state variables with their defaults if they don't exist
@@ -42,17 +42,17 @@ def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
     # Settings to reset (exclude file-related keys)
     settings_to_reset = ['start_color', 'end_color', 'fig_width', 'fig_height',
-                          'logo_x', 'logo_y', 'logo_size', 'building_name']
-    
+                         'logo_x', 'logo_y', 'logo_size', 'building_name']
+
     # Reset the actual session state values
     for setting in settings_to_reset:
         st.session_state[setting] = DEFAULTS[setting]
-    
+
     # Also reset the widget keys to force UI update
     widget_keys_to_reset = ['fig_width_slider', 'fig_height_slider', 'start_color_picker',
                             'end_color_picker', 'logo_x_slider', 'logo_y_slider',
                             'logo_size_slider', 'building_name_input']
-    
+
     for key in widget_keys_to_reset:
         if key in st.session_state:
             if 'color' in key:
@@ -75,7 +75,7 @@ def reset_settings():
                     st.session_state[key] = DEFAULTS['logo_size']
             elif key == 'building_name_input':
                 st.session_state[key] = DEFAULTS['building_name']
-    
+
     # Force a rerun to update the UI with reset values
     st.rerun()
 
@@ -99,7 +99,7 @@ st.download_button(
 # Move all controls into sidebar
 with st.sidebar:
     st.header("Settings")
-    
+
     # Add Reset Settings button at the top of the sidebar
     if st.button("🔄 Reset All Settings", type="secondary", use_container_width=True):
         reset_settings()
@@ -114,7 +114,7 @@ with st.sidebar:
         step=1, key="fig_width_slider"
     )
     st.session_state.fig_width = fig_width
-    
+
     fig_height = st.slider(
         "Figure Height (inches)",
         min_value=5, max_value=25,
@@ -131,7 +131,7 @@ with st.sidebar:
         key="start_color_picker"
     )
     st.session_state.start_color = start_color
-    
+
     end_color = st.color_picker(
         "End color (latest year)",
         value=st.session_state.end_color,
@@ -148,7 +148,7 @@ with st.sidebar:
     if new_logo_file_uploader is not None:
         st.session_state['logo_file_content'] = new_logo_file_uploader.getvalue()
         st.session_state['logo_file_type'] = new_logo_file_uploader.type
-    
+
     # Use the logo content from session state if available
     logo_file_to_display = None
     if st.session_state.get('logo_file_content') is not None:
@@ -163,13 +163,13 @@ with st.sidebar:
             value=st.session_state.logo_x, step=10, key="logo_x_slider"
         )
         st.session_state.logo_x = logo_x
-        
+
         logo_y = st.slider(
             "Logo Y position (pixels from bottom)", 0, 2000,
             value=st.session_state.logo_y, step=10, key="logo_y_slider"
         )
         st.session_state.logo_y = logo_y
-        
+
         logo_size = st.slider(
             "Logo max size (pixels)", 50, 500,
             value=st.session_state.logo_size, step=10, key="logo_size_slider"
@@ -290,10 +290,10 @@ if excel_file_to_process is not None:
             suite_sf = row['Square Footage']
             tenant = row['Tenant Name']
             suite = row['Suite Number']
-            
+
             # Handle division by zero for floors with 0 SF total (though unlikely with valid data)
             width = suite_sf / floor_sum * plot_width if floor_sum > 0 else 0
-            
+
             color = get_color(row)
 
             ax.barh(y=y_pos, width=width, height=height, left=x_pos,
@@ -307,6 +307,7 @@ if excel_file_to_process is not None:
             line3 = f"{suite_sf:,} SF | {expiry}" # Added comma formatting
 
             # Add the first and third lines
+            ax.text(x=x_pos + width/2, y=y_pos + 0.2, # Adjust y position slightly for 3 lines
             ax.text(x=x_pos + width/2, y=y_pos - 0.2, # Adjust y position slightly for 3 lines
                     s=line1,
                     ha='center', va='center', fontsize=6)
@@ -317,6 +318,7 @@ if excel_file_to_process is not None:
                     ha='center', va='center', fontsize=6, **{'fontweight': 'bold'}) # Apply bold here
 
             # Add the third line
+            ax.text(x=x_pos + width/2, y=y_pos - 0.2, # Adjust y position slightly for 3 lines
             ax.text(x=x_pos + width/2, y=y_pos + 0.2, # Adjust y position slightly for 3 lines
                     s=line3,
                     ha='center', va='center', fontsize=6)
@@ -360,13 +362,13 @@ if excel_file_to_process is not None:
         year_sf = year_totals.get(year, 0)
         label = f"{int(year)} ({int(year_sf):,} SF)" if year_sf > 0 else str(int(year))
         legend_elements.append(mpatches.Patch(facecolor=color, edgecolor='black', label=label))
-    
+
     # Add VACANT with square footage if any
     if vacant_total > 0:
         legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label=f'VACANT ({int(vacant_total):,} SF)'))
     else:
         legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT'))
-    
+
     # Add No Expiry with square footage if any
     if no_expiry_total > 0:
         legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label=f'No Expiry ({int(no_expiry_total):,} SF)'))
@@ -376,7 +378,7 @@ if excel_file_to_process is not None:
     # Adjusted bbox_to_anchor for the legend to make space for the new text
     # The y-coordinate might need slight tweaking depending on overall chart size and desired spacing.
     ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
-                                 ncol=len(legend_elements), fontsize=12)
+                                ncol=len(legend_elements), fontsize=12)
 
     st.pyplot(fig)
 
