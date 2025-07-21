@@ -35,6 +35,9 @@ for k, v in DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+# Define required columns for the Excel file
+REQUIRED_COLUMNS = ['Floor', 'Suite Number', 'Tenant Name', 'Square Footage', 'Expiration Date']
+
 # -----------------------------------
 # Reset Settings Function
 # -----------------------------------
@@ -80,6 +83,127 @@ def reset_settings():
     st.rerun()
 
 # -----------------------------------
+# Plotting Function
+# -----------------------------------
+def generate_stacking_plan_plot(data, building_name, start_color, end_color,
+                                fig_width, fig_height, logo_file_to_display,
+                                logo_x, logo_y, logo_size,
+                                occupancy_percent_text, year_totals, vacant_total, no_expiry_total):
+    
+    plt.rcParams.update({'font.family': 'sans-serif', 'font.size': 8})
+
+    data['Expiration Date'] = pd.to_datetime(data['Expiration Date'])
+    data['Expiration Year'] = data['Expiration Date'].dt.year
+    data = data.sort_values(by=['Floor', 'Suite Number'], ascending=[False, True])
+
+    years_data = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Expiration Year'].dropna()
+    if years_data.empty:
+        years = np.array([pd.Timestamp.now().year, pd.Timestamp.now().year + 5]) # Use current year + 5 as sensible defaults
+    else:
+        years = np.sort(years_data.unique())
+        if len(years) == 1:
+            years = np.array([years[0], years[0] + 1])
+
+    cmap = LinearSegmentedColormap.from_list("custom_gradient", [start_color, end_color])
+    norm = mcolors.Normalize(vmin=years.min(), vmax=years.max())
+
+    def get_color(row):
+        tenant_upper = str(row['Tenant Name']).upper()
+        if 'VACANT' in tenant_upper:
+            return '#d3d3d3'
+        year = row['Expiration Year']
+        if pd.isna(year):
+            return '#1f77b4'
+        color = cmap(norm(year))
+        return mcolors.to_hex(color)
+
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+    y_pos = 0
+    height = 1
+    plot_width = 10
+
+    floors = sorted(data['Floor'].unique(), reverse=True)
+
+    for floor in floors:
+        floor_data = data[data['Floor'] == floor]
+        floor_sum = floor_data['Square Footage'].sum()
+        x_pos = 0
+
+        ax.text(-0.5, y_pos, f"Floor {floor}\n{floor_sum:,} SF",
+                                ha='right', va='center', fontsize=8, fontweight='bold')
+
+        for i, row in floor_data.iterrows():
+            suite_sf = row['Square Footage']
+            tenant = row['Tenant Name']
+            suite = row['Suite Number']
+            
+            width = suite_sf / floor_sum * plot_width if floor_sum > 0 else 0
+            
+            color = get_color(row)
+
+            ax.barh(y=y_pos, width=width, height=height, left=x_pos,
+                                color=color, edgecolor='black')
+
+            expiry = row['Expiration Date'].strftime('%Y-%m-%d') if pd.notna(row['Expiration Date']) else 'No Expiry'
+
+            line1 = f"Suite {suite} | {tenant}"
+            line2 = f"{suite_sf:,} SF | {expiry}" # Added comma formatting
+            
+            ax.text(x=x_pos + width/2, y=y_pos,
+                                s=f"{line1}\n{line2}",
+                                ha='center', va='center', fontsize=6)
+
+            x_pos += width
+
+        y_pos += height
+
+    ax.set_xlabel('Proportional Suite Width (normalized per floor)')
+    ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_title(f'Stacking Plan - {building_name}', fontsize=14, fontweight='bold')
+    ax.invert_yaxis()
+
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    ax.tick_params(bottom=False)
+
+    plt.tight_layout()
+
+    if logo_file_to_display is not None:
+        logo = Image.open(logo_file_to_display)
+        # Convert logo_size to int for thumbnail
+        logo.thumbnail((int(logo_size), int(logo_size)))
+        fig.figimage(logo, xo=int(logo_x), yo=int(logo_y), alpha=1, zorder=10)
+
+    # Occupancy Percentage Text
+    ax.text(0.5, -0.05, f"Occupancy: {occupancy_percent_text}",
+            transform=ax.transAxes, ha='center', va='top', fontsize=12, fontweight='bold')
+
+    legend_elements = []
+    for year in years:
+        color = mcolors.to_hex(cmap(norm(year)))
+        year_sf = year_totals.get(year, 0)
+        label = f"{int(year)} ({int(year_sf):,} SF)" if year_sf > 0 else str(int(year))
+        legend_elements.append(mpatches.Patch(facecolor=color, edgecolor='black', label=label))
+    
+    if vacant_total > 0:
+        legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label=f'VACANT ({int(vacant_total):,} SF)'))
+    else:
+        legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT'))
+    
+    if no_expiry_total > 0:
+        legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label=f'No Expiry ({int(no_expiry_total):,} SF)'))
+    else:
+        legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry'))
+
+    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
+                                ncol=len(legend_elements), fontsize=12)
+    
+    return fig
+
+# -----------------------------------
 # UI Start
 # -----------------------------------
 
@@ -93,7 +217,8 @@ st.download_button(
     label="📥 Download Excel Template",
     data=template_data,
     file_name="stacking_plan_template.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    help="Download an Excel template to easily format your data for the stacking plan."
 )
 
 # Move all controls into sidebar
@@ -101,17 +226,18 @@ with st.sidebar:
     st.header("Settings")
     
     # Add Reset Settings button at the top of the sidebar
-    if st.button("🔄 Reset All Settings", type="secondary", use_container_width=True):
+    if st.button("🔄 Reset All Settings", type="secondary", use_container_width=True,
+                 help="Click to reset all chart and logo settings to their default values."):
         reset_settings()
 
     # Chart size sliders
     st.subheader("Chart Size")
-    # Use the widget keys directly and sync with session state
     fig_width = st.slider(
         "Figure Width (inches)",
         min_value=5, max_value=40,
         value=st.session_state.fig_width,
-        step=1, key="fig_width_slider"
+        step=1, key="fig_width_slider",
+        help="Adjust the overall width of the generated stacking plan image."
     )
     st.session_state.fig_width = fig_width
     
@@ -119,7 +245,8 @@ with st.sidebar:
         "Figure Height (inches)",
         min_value=5, max_value=25,
         value=st.session_state.fig_height,
-        step=1, key="fig_height_slider"
+        step=1, key="fig_height_slider",
+        help="Adjust the overall height of the generated stacking plan image."
     )
     st.session_state.fig_height = fig_height
 
@@ -128,26 +255,35 @@ with st.sidebar:
     start_color = st.color_picker(
         "Start color (earliest year)",
         value=st.session_state.start_color,
-        key="start_color_picker"
+        key="start_color_picker",
+        help="Select the color for the earliest lease expiration year. The gradient will transition from this color."
     )
     st.session_state.start_color = start_color
     
     end_color = st.color_picker(
         "End color (latest year)",
         value=st.session_state.end_color,
-        key="end_color_picker"
+        key="end_color_picker",
+        help="Select the color for the latest lease expiration year. The gradient will transition to this color."
     )
     st.session_state.end_color = end_color
 
     # Logo upload + controls
     st.subheader("Logo")
-    # File uploader gets its own key. Its output is handled to persist content.
-    new_logo_file_uploader = st.file_uploader("Upload logo (PNG/JPG)", type=["png", "jpg", "jpeg"], key="logo_uploader")
+    new_logo_file_uploader = st.file_uploader(
+        "Upload logo (PNG/JPG)",
+        type=["png", "jpg", "jpeg"],
+        key="logo_uploader",
+        help="Upload your company logo to be displayed on the stacking plan. Recommended formats: PNG, JPG."
+    )
 
-    # If a new logo is uploaded, store its content in session state
     if new_logo_file_uploader is not None:
-        st.session_state['logo_file_content'] = new_logo_file_uploader.getvalue()
-        st.session_state['logo_file_type'] = new_logo_file_uploader.type
+        # Only update session state if a new file is indeed uploaded or content changed
+        if (st.session_state.get('logo_file_content') != new_logo_file_uploader.getvalue() or
+            st.session_state.get('logo_file_type') != new_logo_file_uploader.type):
+            st.session_state['logo_file_content'] = new_logo_file_uploader.getvalue()
+            st.session_state['logo_file_type'] = new_logo_file_uploader.type
+            st.success("✅ Logo uploaded!") # Visual feedback for logo upload
     
     # Use the logo content from session state if available
     logo_file_to_display = None
@@ -160,19 +296,22 @@ with st.sidebar:
     if logo_file_to_display is not None:
         logo_x = st.slider(
             "Logo X position (pixels from left)", 0, 2000,
-            value=st.session_state.logo_x, step=10, key="logo_x_slider"
+            value=st.session_state.logo_x, step=10, key="logo_x_slider",
+            help="Adjust the horizontal position of the logo on the chart. 0 is the left edge of the plot."
         )
         st.session_state.logo_x = logo_x
         
         logo_y = st.slider(
             "Logo Y position (pixels from bottom)", 0, 2000,
-            value=st.session_state.logo_y, step=10, key="logo_y_slider"
+            value=st.session_state.logo_y, step=10, key="logo_y_slider",
+            help="Adjust the vertical position of the logo on the chart. 0 is the bottom edge of the plot."
         )
         st.session_state.logo_y = logo_y
         
         logo_size = st.slider(
             "Logo max size (pixels)", 50, 500,
-            value=st.session_state.logo_size, step=10, key="logo_size_slider"
+            value=st.session_state.logo_size, step=10, key="logo_size_slider",
+            help="Set the maximum width/height for the uploaded logo. The logo will scale down if larger."
         )
         st.session_state.logo_size = logo_size
 
@@ -180,17 +319,30 @@ with st.sidebar:
 building_name = st.text_input(
     "🏢 Enter building name or address for this stacking plan",
     value=st.session_state.building_name,
-    key="building_name_input"
+    key="building_name_input",
+    help="This text will appear as the main title of your stacking plan chart."
 )
 st.session_state.building_name = building_name
 
 # File upload for stacking data
-new_excel_file_uploader = st.file_uploader("Upload your Excel file here (.xlsx)", key="excel_uploader")
+new_excel_file_uploader = st.file_uploader(
+    "Upload your Excel file here (.xlsx)",
+    key="excel_uploader",
+    help=f"Upload an Excel file containing your building's unit data. Required columns: {', '.join(REQUIRED_COLUMNS)}."
+)
 
 # If a new Excel file is uploaded, store its content in session state
 if new_excel_file_uploader is not None:
-    st.session_state['excel_file_content'] = new_excel_file_uploader.getvalue()
-    st.session_state['excel_file_name'] = new_excel_file_uploader.name
+    # Only update session state if a new file is indeed uploaded or content changed
+    if (st.session_state.get('excel_file_content') != new_excel_file_uploader.getvalue() or
+        st.session_state.get('excel_file_name') != new_excel_file_uploader.name):
+        st.session_state['excel_file_content'] = new_excel_file_uploader.getvalue()
+        st.session_state['excel_file_name'] = new_excel_file_uploader.name
+        st.success(f"✅ File '{new_excel_file_uploader.name}' uploaded successfully!")
+elif st.session_state.get('excel_file_content') is None:
+    st.info("⬆️ Please upload an Excel file to generate the stacking plan.")
+    st.markdown("You can download the template above to ensure correct column headers.")
+
 
 # Determine which file content to use for plotting:
 # Prefer content from session state if available (persisted file).
@@ -199,172 +351,74 @@ if st.session_state.get('excel_file_content') is not None:
     excel_file_to_process = BytesIO(st.session_state['excel_file_content'])
     excel_file_to_process.name = st.session_state['excel_file_name'] # Important for pandas to read it
 
-required_columns = ['Floor', 'Suite Number', 'Tenant Name', 'Square Footage', 'Expiration Date']
-
 if excel_file_to_process is not None:
     try:
         data = pd.read_excel(excel_file_to_process)
-        missing_cols = [col for col in required_columns if col not in data.columns]
+        
+        # Validate required columns
+        missing_cols = [col for col in REQUIRED_COLUMNS if col not in data.columns]
         if missing_cols:
-            st.error(f"❌ Uploaded file is missing required columns: {', '.join(missing_cols)}")
-            # Clear the invalid file from session state so it doesn't keep trying to process it
+            st.error(f"❌ Uploaded file is missing required columns: {', '.join(missing_cols)}. Please check the template.")
             st.session_state['excel_file_content'] = None
             st.session_state['excel_file_name'] = None
             st.stop()
+
+        # Validate numeric columns
+        for col in ['Square Footage', 'Floor']:
+            if not pd.api.types.is_numeric_dtype(data[col]):
+                st.error(f"❌ Column '{col}' must contain numeric values. Please correct your Excel file.")
+                st.session_state['excel_file_content'] = None
+                st.session_state['excel_file_name'] = None
+                st.stop()
+        
+        # Check for empty data after initial processing
+        if data.empty:
+            st.warning("⚠️ The uploaded Excel file contains no data or no valid rows after initial processing. Please ensure your file is not empty.")
+            st.session_state['excel_file_content'] = None
+            st.session_state['excel_file_name'] = None
+            st.stop()
+
     except Exception as e:
-        st.error(f"❌ Error reading Excel file: {e}")
-        # Clear the invalid file from session state
+        st.error(f"❌ Error reading Excel file: {e}. Please ensure it's a valid .xlsx file.")
         st.session_state['excel_file_content'] = None
         st.session_state['excel_file_name'] = None
         st.stop()
 
-    # Matplotlib style
-    plt.rcParams.update({'font.family': 'sans-serif', 'font.size': 8})
-
-    data['Expiration Date'] = pd.to_datetime(data['Expiration Date'])
-    data['Expiration Year'] = data['Expiration Date'].dt.year
-
-    data = data.sort_values(by=['Floor', 'Suite Number'], ascending=[False, True])
-
-    years_data = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Expiration Year'].dropna()
-    if years_data.empty:
-        years = np.array([2025, 2030]) # Default years if no valid expiration dates
+    # Calculate Total Occupied SF and Total Available SF before plotting
+    total_available_sf = data['Square Footage'].sum()
+    if total_available_sf == 0:
+        st.warning("⚠️ Total square footage in the building is zero. Cannot calculate occupancy percentage or plot effectively.")
+        total_occupied_sf = 0
+        occupancy_percentage = 0
+        occupancy_percent_text = "N/A (Total SF is 0)"
     else:
-        years = np.sort(years_data.unique())
-        if len(years) == 1: # Handle case with only one unique year
-            years = np.array([years[0], years[0] + 1])
+        total_occupied_sf = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
+        occupancy_percentage = (total_occupied_sf / total_available_sf) * 100
+        occupancy_percent_text = f"{occupancy_percentage:.1f}% ({int(total_occupied_sf):,} / {int(total_available_sf):,} SF)"
 
-
-    cmap = LinearSegmentedColormap.from_list("custom_gradient", [st.session_state.start_color, st.session_state.end_color])
-    norm = mcolors.Normalize(vmin=years.min(), vmax=years.max())
-
-    def get_color(row):
-        tenant_upper = str(row['Tenant Name']).upper()
-        if 'VACANT' in tenant_upper:
-            return '#d3d3d3'
-        year = row['Expiration Year']
-        if pd.isna(year):
-            return '#1f77b4'
-        color = cmap(norm(year))
-        return mcolors.to_hex(color)
-
+    # Calculate year totals, no expiry, and vacant totals for the legend
     year_totals = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT')].groupby('Expiration Year')['Square Footage'].sum()
     no_expiry_total = data.loc[data['Expiration Year'].isna() & ~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
     vacant_total = data.loc[data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
 
-    # Calculate Total Occupied SF and Total Available SF
-    total_occupied_sf = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
-    total_available_sf = data['Square Footage'].sum() # Sum of all square footage in the building
 
-    occupancy_percentage = (total_occupied_sf / total_available_sf) * 100 if total_available_sf > 0 else 0
-
-    # Format the occupancy text
-    occupancy_percent_text = f"{occupancy_percentage:.1f}% ({int(total_occupied_sf):,} / {int(total_available_sf):,} SF)"
-
-    occupancy_summary = []
-    for year, total_sf in year_totals.items():
-        occupancy_summary.append(f"{int(year)}: {int(total_sf):,} SF")
-    if no_expiry_total > 0:
-        occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
-    if vacant_total > 0:
-        occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
-    # occupancy_text = " | ".join(occupancy_summary) # This is no longer used directly as part of ax.text
-
-    fig, ax = plt.subplots(figsize=(st.session_state.fig_width, st.session_state.fig_height))
-
-    y_pos = 0
-    height = 1
-    plot_width = 10
-
-    floors = sorted(data['Floor'].unique(), reverse=True)
-
-    for floor in floors:
-        floor_data = data[data['Floor'] == floor]
-        floor_sum = floor_data['Square Footage'].sum()
-        x_pos = 0
-
-        ax.text(-0.5, y_pos, f"Floor {floor}\n{floor_sum} SF",
-                                ha='right', va='center', fontsize=8, fontweight='bold')
-
-        for i, row in floor_data.iterrows():
-            suite_sf = row['Square Footage']
-            tenant = row['Tenant Name']
-            suite = row['Suite Number']
-            
-            # Handle division by zero for floors with 0 SF total (though unlikely with valid data)
-            width = suite_sf / floor_sum * plot_width if floor_sum > 0 else 0
-            
-            color = get_color(row)
-
-            ax.barh(y=y_pos, width=width, height=height, left=x_pos,
-                                color=color, edgecolor='black')
-
-            expiry = row['Expiration Date'].strftime('%Y-%m-%d') if pd.notna(row['Expiration Date']) else 'No Expiry'
-
-            # Two-line format: Suite + Tenant | SF + Expiry
-            line1 = f"Suite {suite} | {tenant}"
-            line2 = f"{suite_sf} SF | {expiry}"
-            
-            ax.text(x=x_pos + width/2, y=y_pos,
-                                s=f"{line1}\n{line2}",
-                                ha='center', va='center', fontsize=6)
-
-            x_pos += width
-
-        y_pos += height
-
-    ax.set_xlabel('Proportional Suite Width (normalized per floor)')
-    ax.set_yticks([])
-    ax.set_xticks([])
-    ax.set_title(f'Stacking Plan - {st.session_state.building_name}', fontsize=14, fontweight='bold')
-    ax.invert_yaxis()
-
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-
-    ax.tick_params(bottom=False)
-
-    plt.tight_layout()
-
-    if logo_file_to_display is not None:
-        logo = Image.open(logo_file_to_display)
-        logo.thumbnail((int(st.session_state.logo_size), int(st.session_state.logo_size)))
-        fig.figimage(logo, xo=int(st.session_state.logo_x), yo=int(st.session_state.logo_y), alpha=1, zorder=10)
-
-    # --- Add Occupancy Percentage Text ---
-    # Position it relative to the axes for consistent placement above the legend
-    # bbox_to_anchor controls the position in axes coordinates (0,0 is bottom-left, 1,1 is top-right)
-    # The first value (0.5) centers it horizontally.
-    # The second value (-0.15) places it below the main plot area but above the legend.
-    # Adjust this value as needed based on your fig_height and desired spacing.
-    ax.text(0.5, -0.05, f"Occupancy: {occupancy_percent_text}",
-            transform=ax.transAxes, ha='center', va='top', fontsize=12, fontweight='bold')
-    # --- End Occupancy Percentage Text ---
-
-    legend_elements = []
-    # Add expiration years with their square footage in the legend labels
-    for year in years:
-        color = mcolors.to_hex(cmap(norm(year)))
-        year_sf = year_totals.get(year, 0)
-        label = f"{int(year)} ({int(year_sf):,} SF)" if year_sf > 0 else str(int(year))
-        legend_elements.append(mpatches.Patch(facecolor=color, edgecolor='black', label=label))
-    
-    # Add VACANT with square footage if any
-    if vacant_total > 0:
-        legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label=f'VACANT ({int(vacant_total):,} SF)'))
-    else:
-        legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT'))
-    
-    # Add No Expiry with square footage if any
-    if no_expiry_total > 0:
-        legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label=f'No Expiry ({int(no_expiry_total):,} SF)'))
-    else:
-        legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry'))
-
-    # Adjusted bbox_to_anchor for the legend to make space for the new text
-    # The y-coordinate might need slight tweaking depending on overall chart size and desired spacing.
-    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
-                                ncol=len(legend_elements), fontsize=12)
+    # Generate the plot using the function
+    fig = generate_stacking_plan_plot(
+        data,
+        st.session_state.building_name,
+        st.session_state.start_color,
+        st.session_state.end_color,
+        st.session_state.fig_width,
+        st.session_state.fig_height,
+        logo_file_to_display,
+        st.session_state.logo_x,
+        st.session_state.logo_y,
+        st.session_state.logo_size,
+        occupancy_percent_text,
+        year_totals,
+        vacant_total,
+        no_expiry_total
+    )
 
     st.pyplot(fig)
 
@@ -391,5 +445,3 @@ if excel_file_to_process is not None:
     )
 
     st.success("✅ Stacking plan generated!")
-else:
-    st.info("⬆️ Please upload an Excel file to generate the stacking plan.")
