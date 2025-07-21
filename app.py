@@ -80,9 +80,6 @@ if uploaded_file is not None:
 
     occupancy_text = " | ".join(occupancy_summary)
 
-    # Display occupancy summary in Streamlit
-    st.markdown(f"**Total Square Footage by Expiration Year:** {occupancy_text}")
-
     # -------------------------
     # Create plot
     # -------------------------
@@ -156,7 +153,15 @@ if uploaded_file is not None:
         mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry Date')
     )
 
-    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
+    # -------------------------
+    # 🆕 Add occupancy summary text to chart
+    # -------------------------
+    ax.text(0.5, -0.1, f"Total SF by Expiration Year: {occupancy_text}",
+            transform=ax.transAxes,
+            ha='center', va='top', fontsize=10, fontweight='bold')
+
+    # Adjust legend position slightly lower if needed
+    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.2),
               ncol=len(legend_elements), fontsize=8)
 
     # Show plot in Streamlit
