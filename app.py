@@ -25,10 +25,15 @@ DEFAULTS = {
 if 'reset_triggered' not in st.session_state:
     st.session_state.reset_triggered = False
 
+# The reset logic needs to be before the UI elements that might read from session_state
+# This ensures that default values are set before widgets try to access them.
 if st.session_state.reset_triggered:
     for k, v in DEFAULTS.items():
         st.session_state[k] = v
     st.session_state.reset_triggered = False  # turn off the flag
+    # We don't need to rerun explicitly here if the defaults are set
+    # before the widgets are rendered on the initial load or after a reset.
+    # The normal flow of Streamlit will re-render the app.
 
 # -----------------------------------
 # UI Start
@@ -56,7 +61,7 @@ with st.sidebar:
 
     if st.button("🔄 Reset All Settings"):
         st.session_state.reset_triggered = True
-        st.experimental_rerun()
+        st.rerun() # Changed from st.experimental_rerun() to st.rerun()
 
     st.subheader("Chart Size")
     fig_width = st.slider(
@@ -103,7 +108,13 @@ with st.sidebar:
             step=10, key="logo_size"
         )
     else:
-        logo_x, logo_y, logo_size = DEFAULTS['logo_x'], DEFAULTS['logo_y'], DEFAULTS['logo_size']
+        # Ensure these are always initialized, even if no logo is uploaded
+        logo_x = st.session_state.get('logo_x', DEFAULTS['logo_x'])
+        logo_y = st.session_state.get('logo_y', DEFAULTS['logo_y'])
+        logo_size = st.session_state.get('logo_size', DEFAULTS['logo_size'])
+
+# Rest of your code remains the same
+# ... (building_name input, file upload, plotting logic, downloads) ...
 
 # -----------------------------------
 # Building name input
