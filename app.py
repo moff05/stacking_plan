@@ -77,11 +77,11 @@ if uploaded_file is not None:
     for year, total_sf in year_totals.items():
         occupancy_summary.append(f"{int(year)}: {int(total_sf):,} SF")
 
-    if no_expiry_total > 0:
-        occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
-
     if vacant_total > 0:
         occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
+
+    if no_expiry_total > 0:
+        occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
 
     occupancy_text = " | ".join(occupancy_summary)
 
