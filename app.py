@@ -19,21 +19,18 @@ DEFAULTS = {
     'fig_height': 14,
     'logo_x': 50,
     'logo_y': 50,
-    'logo_size': 150
+    'logo_size': 150,
+    'uploaded_file_data': None, # Add this to store file content
+    'uploaded_file_name': None # Add this to store file name
 }
 
 if 'reset_triggered' not in st.session_state:
     st.session_state.reset_triggered = False
 
-# The reset logic needs to be before the UI elements that might read from session_state
-# This ensures that default values are set before widgets try to access them.
 if st.session_state.reset_triggered:
     for k, v in DEFAULTS.items():
         st.session_state[k] = v
-    st.session_state.reset_triggered = False  # turn off the flag
-    # We don't need to rerun explicitly here if the defaults are set
-    # before the widgets are rendered on the initial load or after a reset.
-    # The normal flow of Streamlit will re-render the app.
+    st.session_state.reset_triggered = False
 
 # -----------------------------------
 # UI Start
@@ -61,7 +58,7 @@ with st.sidebar:
 
     if st.button("🔄 Reset All Settings"):
         st.session_state.reset_triggered = True
-        st.rerun() # Changed from st.experimental_rerun() to st.rerun()
+        st.rerun()
 
     st.subheader("Chart Size")
     fig_width = st.slider(
@@ -90,7 +87,20 @@ with st.sidebar:
     )
 
     st.subheader("Logo")
-    logo_file = st.file_uploader("Upload logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
+    # Handle logo file separately if it needs to persist
+    logo_file_uploader = st.file_uploader("Upload logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
+
+    # If a new logo is uploaded, store it
+    if logo_file_uploader is not None:
+        st.session_state['logo_file_data'] = logo_file_uploader.getvalue()
+        st.session_state['logo_file_type'] = logo_file_uploader.type
+    
+    # Use the stored logo data if available, otherwise None
+    logo_file = None
+    if 'logo_file_data' in st.session_state and st.session_state['logo_file_data'] is not None:
+        logo_file = BytesIO(st.session_state['logo_file_data'])
+        logo_file.name = "uploaded_logo." + st.session_state['logo_file_type'].split('/')[-1] # give it a name for PIL
+
     if logo_file is not None:
         logo_x = st.slider(
             "Logo X position (px from left)", 0, 2000,
@@ -108,13 +118,9 @@ with st.sidebar:
             step=10, key="logo_size"
         )
     else:
-        # Ensure these are always initialized, even if no logo is uploaded
         logo_x = st.session_state.get('logo_x', DEFAULTS['logo_x'])
         logo_y = st.session_state.get('logo_y', DEFAULTS['logo_y'])
         logo_size = st.session_state.get('logo_size', DEFAULTS['logo_size'])
-
-# Rest of your code remains the same
-# ... (building_name input, file upload, plotting logic, downloads) ...
 
 # -----------------------------------
 # Building name input
@@ -129,7 +135,22 @@ building_name = st.text_input(
 # File Upload & Processing
 # -----------------------------------
 
-uploaded_file = st.file_uploader("Upload your Excel file here (.xlsx)")
+# File uploader widget
+new_uploaded_file = st.file_uploader("Upload your Excel file here (.xlsx)")
+
+# If a new file is uploaded, update session state
+if new_uploaded_file is not None:
+    st.session_state['uploaded_file_data'] = new_uploaded_file.getvalue()
+    st.session_state['uploaded_file_name'] = new_uploaded_file.name
+
+# Use the file from session state, if available
+if st.session_state.get('uploaded_file_data') is not None:
+    # Recreate the BytesIO object from stored data
+    uploaded_file_content = BytesIO(st.session_state['uploaded_file_data'])
+    uploaded_file_content.name = st.session_state['uploaded_file_name'] # Important for pandas to read it
+    uploaded_file = uploaded_file_content
+else:
+    uploaded_file = None # No file, so no plot
 
 required_columns = ['Floor', 'Suite Number', 'Tenant Name', 'Square Footage', 'Expiration Date']
 
