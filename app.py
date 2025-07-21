@@ -307,7 +307,7 @@ if excel_file_to_process is not None:
             line3 = f"{suite_sf:,} SF | {expiry}" # Added comma formatting
 
             # Add the first and third lines
-            ax.text(x=x_pos + width/2, y=y_pos + 0.2, # Adjust y position slightly for 3 lines
+            ax.text(x=x_pos + width/2, y=y_pos - 0.2, # Adjust y position slightly for 3 lines
                     s=line1,
                     ha='center', va='center', fontsize=6)
 
@@ -317,7 +317,7 @@ if excel_file_to_process is not None:
                     ha='center', va='center', fontsize=6, **{'fontweight': 'bold'}) # Apply bold here
 
             # Add the third line
-            ax.text(x=x_pos + width/2, y=y_pos - 0.2, # Adjust y position slightly for 3 lines
+            ax.text(x=x_pos + width/2, y=y_pos + 0.2, # Adjust y position slightly for 3 lines
                     s=line3,
                     ha='center', va='center', fontsize=6)
 
