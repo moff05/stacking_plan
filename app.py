@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import numpy as np
 import matplotlib.patches as mpatches
+from matplotlib.colors import LinearSegmentedColormap
 from io import BytesIO
 
 st.title("Stacking Plan Generator")
@@ -19,6 +20,10 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
+# 🎨 Color pickers for gradient
+start_color = st.color_picker("🎨 Choose start color (earliest expiration year)", "#FF0000")
+end_color = st.color_picker("🎨 Choose end color (latest expiration year)", "#00FF00")
+
 # File upload
 uploaded_file = st.file_uploader("Upload your Excel file here (.xlsx)")
 
@@ -33,14 +38,14 @@ if uploaded_file is not None:
     # Sort data
     data = data.sort_values(by=['Floor', 'Suite Number'], ascending=[False, True])
 
-    # Prepare colormap
+    # Prepare colormap with user-selected colors
     years = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Expiration Year'].dropna().unique()
     years = np.sort(years)
 
     if len(years) == 0:
         years = np.array([2025, 2030])
 
-    cmap = plt.get_cmap('RdYlGn')
+    cmap = LinearSegmentedColormap.from_list("custom_gradient", [start_color, end_color])
     norm = mcolors.Normalize(vmin=years.min(), vmax=years.max())
 
     def get_color(row):
@@ -72,11 +77,11 @@ if uploaded_file is not None:
     for year, total_sf in year_totals.items():
         occupancy_summary.append(f"{int(year)}: {int(total_sf):,} SF")
 
-    if vacant_total > 0:
-        occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
-
     if no_expiry_total > 0:
         occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
+
+    if vacant_total > 0:
+        occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
 
     occupancy_text = " | ".join(occupancy_summary)
 
