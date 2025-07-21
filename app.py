@@ -343,8 +343,8 @@ if excel_file_to_process is not None:
         legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry'))
 
     # Remove the separate square footage summary text since it's now in the legend
-    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
-                            ncol=len(legend_elements), fontsize=8)
+    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.08),
+                            ncol=len(legend_elements), fontsize=10)
 
     st.pyplot(fig)
 
