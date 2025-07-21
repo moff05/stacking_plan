@@ -303,12 +303,23 @@ if excel_file_to_process is not None:
 
             # Three-line format: Suite \n Tenant \n SF + Expiry
             line1 = f"Suite {suite}"
-            line2 = f"\033[1m{tenant}\033[0m"
-            line3 = f"{suite_sf} SF | {expiry}"
-            
+            line2_text = f"{tenant}" # Tenant name without bolding escape codes
+            line3 = f"{suite_sf:,} SF | {expiry}" # Added comma formatting
+
+            # Add the first and third lines
+            ax.text(x=x_pos + width/2, y=y_pos + 0.3, # Adjust y position slightly for 3 lines
+                    s=line1,
+                    ha='center', va='center', fontsize=6)
+
+            # Add the second line (tenant name) with bold fontweight
             ax.text(x=x_pos + width/2, y=y_pos,
-                                s=f"{line1}\n{line2}\n{line3}",
-                                ha='center', va='center', fontsize=6)
+                    s=line2_text,
+                    ha='center', va='center', fontsize=6, **{'fontweight': 'bold'}) # Apply bold here
+
+            # Add the third line
+            ax.text(x=x_pos + width/2, y=y_pos - 0.3, # Adjust y position slightly for 3 lines
+                    s=line3,
+                    ha='center', va='center', fontsize=6)
 
             x_pos += width
 
