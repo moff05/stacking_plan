@@ -21,29 +21,33 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# Sidebar controls for chart size
-st.sidebar.header("Chart Size Settings")
-fig_width = st.sidebar.slider("Figure Width (inches)", min_value=5, max_value=40, value=25, step=1)
-fig_height = st.sidebar.slider("Figure Height (inches)", min_value=5, max_value=25, value=14, step=1)
+# Move all controls into sidebar
+with st.sidebar:
+    st.header("Settings")
 
-# Building name input
+    # Chart size sliders
+    st.subheader("Chart Size")
+    fig_width = st.slider("Figure Width (inches)", min_value=5, max_value=40, value=25, step=1)
+    fig_height = st.slider("Figure Height (inches)", min_value=5, max_value=25, value=14, step=1)
+
+    # Color pickers
+    st.subheader("Colors")
+    start_color = st.color_picker("Start color (earliest year)", "#FF0000")
+    end_color = st.color_picker("End color (latest year)", "#00FF00")
+
+    # Logo upload + controls
+    st.subheader("Logo")
+    logo_file = st.file_uploader("Upload logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
+
+    if logo_file is not None:
+        logo_x = st.slider("Logo X position (pixels from left)", 0, 2000, 50, 10)
+        logo_y = st.slider("Logo Y position (pixels from bottom)", 0, 2000, 50, 10)
+        logo_size = st.slider("Logo max size (pixels)", 50, 500, 150, 10)
+    else:
+        logo_x, logo_y, logo_size = 50, 50, 150
+
+# Building name input stays in main UI for better visibility
 building_name = st.text_input("🏢 Enter building name or address for this stacking plan", "My Building")
-
-# Color pickers for gradient
-start_color = st.color_picker("🎨 Choose start color (earliest expiration year)", "#FF0000")
-end_color = st.color_picker("🎨 Choose end color (latest expiration year)", "#00FF00")
-
-# Logo upload
-logo_file = st.file_uploader("Upload a logo image (PNG or JPG) to include on the stacking plan", type=["png", "jpg", "jpeg"])
-
-if logo_file is not None:
-    st.subheader("🔧 Adjust Logo Settings")
-    logo_x = st.slider("Logo X position (pixels from left)", min_value=0, max_value=2000, value=50, step=10)
-    logo_y = st.slider("Logo Y position (pixels from bottom)", min_value=0, max_value=2000, value=50, step=10)
-    logo_size = st.slider("Logo max size (pixels)", min_value=50, max_value=500, value=150, step=10)
-else:
-    # Default values if no logo uploaded (won't be used)
-    logo_x, logo_y, logo_size = 50, 50, 150
 
 # File upload for stacking data
 uploaded_file = st.file_uploader("Upload your Excel file here (.xlsx)")
@@ -82,13 +86,12 @@ if uploaded_file is not None:
     occupancy_summary = []
     for year, total_sf in year_totals.items():
         occupancy_summary.append(f"{int(year)}: {int(total_sf):,} SF")
-    if vacant_total > 0:
-        occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
     if no_expiry_total > 0:
         occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
+    if vacant_total > 0:
+        occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
     occupancy_text = " | ".join(occupancy_summary)
 
-    # Create plot with dynamic size
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
     y_pos = 0
@@ -138,7 +141,6 @@ if uploaded_file is not None:
 
     plt.tight_layout()
 
-    # Add logo if uploaded
     if logo_file is not None:
         logo = Image.open(logo_file)
         logo.thumbnail((logo_size, logo_size))
@@ -160,7 +162,6 @@ if uploaded_file is not None:
 
     st.pyplot(fig)
 
-    # Save figure to buffer for download
     pdf_buf = BytesIO()
     fig.savefig(pdf_buf, format="pdf", bbox_inches="tight")
     pdf_buf.seek(0)
