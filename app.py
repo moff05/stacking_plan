@@ -9,29 +9,41 @@ from io import BytesIO
 from PIL import Image
 
 # -----------------------------------
-# Initialize session state & handle reset
+# Initialize session state for persistence
 # -----------------------------------
 
-# Define ALL default settings for UI elements that can be reset
-DEFAULTS = {
-    'start_color': "#FF0000",
-    'end_color': "#00FF00",
-    'fig_width': 25,
-    'fig_height': 14,
-    'logo_x': 50,
-    'logo_y': 50,
-    'logo_size': 150
-}
+# Define default values for settings
+# These will be used if no value is found in session_state,
+# and will be the initial values when the app first runs.
+DEFAULT_START_COLOR = "#FF0000"
+DEFAULT_END_COLOR = "#00FF00"
+DEFAULT_FIG_WIDTH = 25
+DEFAULT_FIG_HEIGHT = 14
+DEFAULT_LOGO_X = 50
+DEFAULT_LOGO_Y = 50
+DEFAULT_LOGO_SIZE = 150
+DEFAULT_BUILDING_NAME = "My Building"
 
-# Initialize session state variables for UI settings if they don't exist
-# This ensures that when the app first runs, the defaults are applied
-for k, v in DEFAULTS.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
+# Initialize session state variables with defaults if they don't exist
+# These values will persist across reruns and browser refreshes.
+if 'start_color' not in st.session_state:
+    st.session_state.start_color = DEFAULT_START_COLOR
+if 'end_color' not in st.session_state:
+    st.session_state.end_color = DEFAULT_END_COLOR
+if 'fig_width' not in st.session_state:
+    st.session_state.fig_width = DEFAULT_FIG_WIDTH
+if 'fig_height' not in st.session_state:
+    st.session_state.fig_height = DEFAULT_FIG_HEIGHT
+if 'logo_x' not in st.session_state:
+    st.session_state.logo_x = DEFAULT_LOGO_X
+if 'logo_y' not in st.session_state:
+    st.session_state.logo_y = DEFAULT_LOGO_Y
+if 'logo_size' not in st.session_state:
+    st.session_state.logo_size = DEFAULT_LOGO_SIZE
+if 'building_name' not in st.session_state:
+    st.session_state.building_name = DEFAULT_BUILDING_NAME
 
-# Initialize file content session states if they don't exist
-# These should NOT be part of the DEFAULTS for resetting because
-# we want the uploaded file to persist even after a settings reset.
+# File content session states (these also persist but aren't 'settings' per se)
 if 'excel_file_content' not in st.session_state:
     st.session_state.excel_file_content = None
 if 'excel_file_name' not in st.session_state:
@@ -40,18 +52,6 @@ if 'logo_file_content' not in st.session_state:
     st.session_state.logo_file_content = None
 if 'logo_file_type' not in st.session_state:
     st.session_state.logo_file_type = None
-
-# --- Reset Logic ---
-# This block specifically handles the "Reset All Settings" button click.
-# It only clears the UI-related settings, keeping the file data intact.
-if 'reset_triggered' not in st.session_state:
-    st.session_state.reset_triggered = False
-
-if st.session_state.reset_triggered:
-    for k, v in DEFAULTS.items():
-        st.session_state[k] = v # Reset only the UI settings
-    st.session_state.reset_triggered = False # Turn off the flag
-    st.rerun() # Immediately rerun to apply the reset UI settings
 
 # -----------------------------------
 # UI Start
@@ -77,44 +77,37 @@ st.download_button(
 with st.sidebar:
     st.header("Settings")
 
-    # The reset button and its effect
-    if st.button("🔄 Reset All Settings"):
-        st.session_state.reset_triggered = True
-        # The st.rerun() is handled in the top-level reset logic after setting the flag.
+    # Removed the "Reset All Settings" button
 
     st.subheader("Chart Size")
-    # Pass the value from session_state directly. When session_state[k] is updated
-    # due to reset_triggered, the widget will pick up the new value on rerun.
     fig_width = st.slider(
         "Figure Width (inches)",
         min_value=5, max_value=40,
-        value=st.session_state.fig_width, # Directly use session_state value
-        step=1, key="fig_width_slider" # Unique key for the widget
+        value=st.session_state.fig_width,
+        step=1, key="fig_width_slider"
     )
-    # Update session_state ONLY if the slider is interacted with by the user
-    # This ensures that the slider's current value is always what's in session_state
     st.session_state.fig_width = fig_width
 
     fig_height = st.slider(
         "Figure Height (inches)",
         min_value=5, max_value=25,
-        value=st.session_state.fig_height, # Directly use session_state value
-        step=1, key="fig_height_slider" # Unique key for the widget
+        value=st.session_state.fig_height,
+        step=1, key="fig_height_slider"
     )
     st.session_state.fig_height = fig_height
 
     st.subheader("Colors")
     start_color = st.color_picker(
         "Start color (earliest year)",
-        value=st.session_state.start_color, # Directly use session_state value
-        key="start_color_picker" # Unique key for the widget
+        value=st.session_state.start_color,
+        key="start_color_picker"
     )
     st.session_state.start_color = start_color
 
     end_color = st.color_picker(
         "End color (latest year)",
-        value=st.session_state.end_color, # Directly use session_state value
-        key="end_color_picker" # Unique key for the widget
+        value=st.session_state.end_color,
+        key="end_color_picker"
     )
     st.session_state.end_color = end_color
 
@@ -131,7 +124,6 @@ with st.sidebar:
     logo_file_to_display = None
     if st.session_state.get('logo_file_content') is not None:
         logo_file_to_display = BytesIO(st.session_state['logo_file_content'])
-        # Give it a name for PIL. Use a placeholder if original type isn't available.
         logo_extension = st.session_state.get('logo_file_type', 'image/png').split('/')[-1]
         logo_file_to_display.name = f"uploaded_logo.{logo_extension}"
 
@@ -157,7 +149,6 @@ with st.sidebar:
             step=10, key="logo_size_slider"
         )
         st.session_state.logo_size = logo_size
-    # No else block needed here as default values are already in session_state from global initialization
 
 # -----------------------------------
 # Building name input
@@ -165,11 +156,10 @@ with st.sidebar:
 
 building_name = st.text_input(
     "🏢 Enter building name or address for this stacking plan",
-    value=st.session_state.get('building_name', "My Building"), # Persist building name
+    value=st.session_state.building_name,
     key="building_name_input"
 )
 st.session_state.building_name = building_name
-# Add 'building_name': "My Building" to DEFAULTS if you want it to reset
 
 # -----------------------------------
 # File Upload & Processing
@@ -291,7 +281,6 @@ if excel_file_to_process is not None:
 
     if logo_file_to_display is not None:
         logo = Image.open(logo_file_to_display)
-        # Ensure logo_size is an integer, as thumbnail expects integers
         logo.thumbnail((int(st.session_state.logo_size), int(st.session_state.logo_size)))
         fig.figimage(logo, xo=int(st.session_state.logo_x), yo=int(st.session_state.logo_y), alpha=1, zorder=10)
 
