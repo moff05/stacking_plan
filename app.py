@@ -20,8 +20,8 @@ DEFAULTS = {
     'end_color': "#00FF00",
     'fig_width': 25,
     'fig_height': 14,
-    'logo_x_percent': 85,  # Changed to percentage-based positioning, default top right
-    'logo_y_percent': 85,  # Changed to percentage-based positioning, default top right
+    'logo_x_percent': 98,  # Changed to percentage-based positioning, default top right
+    'logo_y_percent': 98,  # Changed to percentage-based positioning, default top right
     'logo_size': 200,      # Increased default size
     'building_name': "My Building",
     'excel_file_content': None, # To store the binary content of the Excel file
@@ -164,22 +164,22 @@ with st.sidebar:
         col1, col2 = st.columns(2)
         with col1:
             if st.button("↖️ Top Left", use_container_width=True):
-                st.session_state.logo_x_percent = 5
-                st.session_state.logo_y_percent = 85
+                st.session_state.logo_x_percent = 2
+                st.session_state.logo_y_percent = 98
                 st.rerun()
             if st.button("↙️ Bottom Left", use_container_width=True):
-                st.session_state.logo_x_percent = 5
-                st.session_state.logo_y_percent = 15
+                st.session_state.logo_x_percent = 2
+                st.session_state.logo_y_percent = 2
                 st.rerun()
         
         with col2:
             if st.button("↗️ Top Right", use_container_width=True):
-                st.session_state.logo_x_percent = 85
-                st.session_state.logo_y_percent = 85
+                st.session_state.logo_x_percent = 98
+                st.session_state.logo_y_percent = 98
                 st.rerun()
             if st.button("↘️ Bottom Right", use_container_width=True):
-                st.session_state.logo_x_percent = 85
-                st.session_state.logo_y_percent = 15
+                st.session_state.logo_x_percent = 98
+                st.session_state.logo_y_percent = 2
                 st.rerun()
         
         if st.button("🎯 Center", use_container_width=True):
@@ -402,9 +402,21 @@ if excel_file_to_process is not None:
         chart_width_px = chart_right_px - chart_left_px
         chart_height_px = chart_top_px - chart_bottom_px
         
-        # Convert percentage to pixel position within the chart area
-        logo_x_px = int(chart_left_px + (st.session_state.logo_x_percent / 100) * chart_width_px - logo.size[0] / 2)
-        logo_y_px = int(chart_bottom_px + (st.session_state.logo_y_percent / 100) * chart_height_px - logo.size[1] / 2)
+        # Convert percentage to position within the chart area, accounting for logo size
+        # For corners, we want the logo edge to align with chart edge, not center
+        if st.session_state.logo_x_percent <= 5:  # Left edge
+            logo_x_px = int(chart_left_px)
+        elif st.session_state.logo_x_percent >= 95:  # Right edge
+            logo_x_px = int(chart_right_px - logo.size[0])
+        else:  # Anywhere in between, center the logo
+            logo_x_px = int(chart_left_px + (st.session_state.logo_x_percent / 100) * chart_width_px - logo.size[0] / 2)
+        
+        if st.session_state.logo_y_percent <= 5:  # Bottom edge
+            logo_y_px = int(chart_bottom_px)
+        elif st.session_state.logo_y_percent >= 95:  # Top edge
+            logo_y_px = int(chart_top_px - logo.size[1])
+        else:  # Anywhere in between, center the logo
+            logo_y_px = int(chart_bottom_px + (st.session_state.logo_y_percent / 100) * chart_height_px - logo.size[1] / 2)
         
         # Ensure logo stays within chart bounds
         logo_x_px = max(int(chart_left_px), min(logo_x_px, int(chart_right_px - logo.size[0])))
