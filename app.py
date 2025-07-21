@@ -36,6 +36,21 @@ for k, v in DEFAULTS.items():
         st.session_state[k] = v
 
 # -----------------------------------
+# Reset Settings Function
+# -----------------------------------
+def reset_settings():
+    """Reset all settings to their default values while preserving uploaded files"""
+    # Settings to reset (exclude file-related keys)
+    settings_to_reset = ['start_color', 'end_color', 'fig_width', 'fig_height', 
+                        'logo_x', 'logo_y', 'logo_size', 'building_name']
+    
+    for setting in settings_to_reset:
+        st.session_state[setting] = DEFAULTS[setting]
+    
+    # Force a rerun to update the UI with reset values
+    st.rerun()
+
+# -----------------------------------
 # UI Start
 # -----------------------------------
 
@@ -55,6 +70,10 @@ st.download_button(
 # Move all controls into sidebar
 with st.sidebar:
     st.header("Settings")
+    
+    # Add Reset Settings button at the top of the sidebar
+    if st.button("🔄 Reset All Settings", type="secondary", use_container_width=True):
+        reset_settings()
 
     # Chart size sliders
     st.subheader("Chart Size")
