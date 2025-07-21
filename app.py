@@ -141,7 +141,8 @@ if uploaded_file is not None:
     # Add logo to figure if uploaded
     if logo_file is not None:
         logo = Image.open(logo_file)
-        fig.figimage(logo, xo=fig.bbox.xmax - 250, yo=fig.bbox.ymax - 150, alpha=1, zorder=10)  # adjust xo/yo as needed
+        logo.thumbnail((150, 150))  # Resize for consistency
+        fig.figimage(logo, xo=50, yo=50, alpha=1, zorder=10)  # bottom left placement
 
     # Legend for colors at bottom
     legend_elements = []
