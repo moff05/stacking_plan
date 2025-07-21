@@ -21,42 +21,41 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# 🏢 Building name input
+# Sidebar controls for chart size
+st.sidebar.header("Chart Size Settings")
+fig_width = st.sidebar.slider("Figure Width (inches)", min_value=5, max_value=40, value=25, step=1)
+fig_height = st.sidebar.slider("Figure Height (inches)", min_value=5, max_value=25, value=14, step=1)
+
+# Building name input
 building_name = st.text_input("🏢 Enter building name or address for this stacking plan", "My Building")
 
-# 🎨 Color pickers for gradient
+# Color pickers for gradient
 start_color = st.color_picker("🎨 Choose start color (earliest expiration year)", "#FF0000")
 end_color = st.color_picker("🎨 Choose end color (latest expiration year)", "#00FF00")
 
-# 🖼️ Logo upload
+# Logo upload
 logo_file = st.file_uploader("Upload a logo image (PNG or JPG) to include on the stacking plan", type=["png", "jpg", "jpeg"])
 
-# 🖼️ Logo position adjustment sliders
 if logo_file is not None:
-    st.subheader("🔧 Adjust Logo Position")
-
-    logo_x = st.slider("Logo X position (pixels from left)", min_value=0, max_value=1000, value=50, step=10)
-    logo_y = st.slider("Logo Y position (pixels from bottom)", min_value=0, max_value=1000, value=50, step=10)
-
-    # Optional: Logo size slider
+    st.subheader("🔧 Adjust Logo Settings")
+    logo_x = st.slider("Logo X position (pixels from left)", min_value=0, max_value=2000, value=50, step=10)
+    logo_y = st.slider("Logo Y position (pixels from bottom)", min_value=0, max_value=2000, value=50, step=10)
     logo_size = st.slider("Logo max size (pixels)", min_value=50, max_value=500, value=150, step=10)
-
+else:
+    # Default values if no logo uploaded (won't be used)
+    logo_x, logo_y, logo_size = 50, 50, 150
 
 # File upload for stacking data
 uploaded_file = st.file_uploader("Upload your Excel file here (.xlsx)")
 
 if uploaded_file is not None:
-    # Read data
     data = pd.read_excel(uploaded_file)
 
-    # Parse expiration dates as datetime
     data['Expiration Date'] = pd.to_datetime(data['Expiration Date'])
     data['Expiration Year'] = data['Expiration Date'].dt.year
 
-    # Sort data
     data = data.sort_values(by=['Floor', 'Suite Number'], ascending=[False, True])
 
-    # Prepare colormap with user-selected colors
     years = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Expiration Year'].dropna().unique()
     years = np.sort(years)
 
@@ -76,30 +75,22 @@ if uploaded_file is not None:
         color = cmap(norm(year))
         return mcolors.to_hex(color)
 
-    # -------------------------
-    # Calculate occupancy totals
-    # -------------------------
     year_totals = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT')].groupby('Expiration Year')['Square Footage'].sum()
     no_expiry_total = data.loc[data['Expiration Year'].isna() & ~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
     vacant_total = data.loc[data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
 
     occupancy_summary = []
-
     for year, total_sf in year_totals.items():
         occupancy_summary.append(f"{int(year)}: {int(total_sf):,} SF")
-
     if no_expiry_total > 0:
         occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
-
     if vacant_total > 0:
         occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
-
     occupancy_text = " | ".join(occupancy_summary)
 
-    # -------------------------
-    # Create plot
-    # -------------------------
-    fig, ax = plt.subplots(figsize=(25, 14))
+    # Create plot with dynamic size
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
     y_pos = 0
     height = 1
     plot_width = 10
@@ -111,7 +102,6 @@ if uploaded_file is not None:
         floor_sum = floor_data['Square Footage'].sum()
         x_pos = 0
 
-        # Floor label + total SF on the left
         ax.text(-0.5, y_pos, f"Floor {floor}\n{floor_sum} SF",
                 ha='right', va='center', fontsize=8, fontweight='bold')
 
@@ -135,7 +125,6 @@ if uploaded_file is not None:
 
         y_pos += height
 
-    # Formatting
     ax.set_xlabel('Proportional Suite Width (normalized per floor)')
     ax.set_yticks([])
     ax.set_xticks([])
@@ -149,29 +138,18 @@ if uploaded_file is not None:
 
     plt.tight_layout()
 
-    # Add logo to figure if uploaded
+    # Add logo if uploaded
     if logo_file is not None:
         logo = Image.open(logo_file)
-        logo.thumbnail((logo_size, logo_size))  # Resize dynamically based on user input
+        logo.thumbnail((logo_size, logo_size))
         fig.figimage(logo, xo=logo_x, yo=logo_y, alpha=1, zorder=10)
 
-
-    # Legend for colors at bottom
     legend_elements = []
-
     for year in years:
         color = mcolors.to_hex(cmap(norm(year)))
-        legend_elements.append(
-            mpatches.Patch(facecolor=color, edgecolor='black', label=str(int(year)))
-        )
-
-    legend_elements.append(
-        mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT')
-    )
-
-    legend_elements.append(
-        mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry Date')
-    )
+        legend_elements.append(mpatches.Patch(facecolor=color, edgecolor='black', label=str(int(year))))
+    legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT'))
+    legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry Date'))
 
     ax.text(0.5, -0.1, f"Total SF by Expiration Year: {occupancy_text}",
             transform=ax.transAxes,
@@ -180,7 +158,6 @@ if uploaded_file is not None:
     ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.2),
               ncol=len(legend_elements), fontsize=8)
 
-    # Show plot in Streamlit
     st.pyplot(fig)
 
     # Save figure to buffer for download
