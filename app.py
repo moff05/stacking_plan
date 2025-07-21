@@ -8,21 +8,31 @@ from matplotlib.colors import LinearSegmentedColormap
 from io import BytesIO
 from PIL import Image
 
-# Initialize session state for reset
-if 'start_color' not in st.session_state:
-    st.session_state.start_color = "#FF0000"
-if 'end_color' not in st.session_state:
-    st.session_state.end_color = "#00FF00"
-if 'fig_width' not in st.session_state:
-    st.session_state.fig_width = 25
-if 'fig_height' not in st.session_state:
-    st.session_state.fig_height = 14
-if 'logo_x' not in st.session_state:
-    st.session_state.logo_x = 50
-if 'logo_y' not in st.session_state:
-    st.session_state.logo_y = 50
-if 'logo_size' not in st.session_state:
-    st.session_state.logo_size = 150
+# -----------------------------------
+# Initialize session state & handle reset
+# -----------------------------------
+
+DEFAULTS = {
+    'start_color': "#FF0000",
+    'end_color': "#00FF00",
+    'fig_width': 25,
+    'fig_height': 14,
+    'logo_x': 50,
+    'logo_y': 50,
+    'logo_size': 150
+}
+
+if 'reset_triggered' not in st.session_state:
+    st.session_state.reset_triggered = False
+
+if st.session_state.reset_triggered:
+    for k, v in DEFAULTS.items():
+        st.session_state[k] = v
+    st.session_state.reset_triggered = False  # turn off the flag
+
+# -----------------------------------
+# UI Start
+# -----------------------------------
 
 st.title("Stacking Plan Generator")
 
@@ -37,42 +47,77 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# Sidebar controls
+# -----------------------------------
+# Sidebar Controls
+# -----------------------------------
+
 with st.sidebar:
     st.header("Settings")
 
-    # Reset button
     if st.button("🔄 Reset All Settings"):
-        st.session_state.start_color = "#FF0000"
-        st.session_state.end_color = "#00FF00"
-        st.session_state.fig_width = 25
-        st.session_state.fig_height = 14
-        st.session_state.logo_x = 50
-        st.session_state.logo_y = 50
-        st.session_state.logo_size = 150
+        st.session_state.reset_triggered = True
         st.experimental_rerun()
 
     st.subheader("Chart Size")
-    fig_width = st.slider("Figure Width (inches)", min_value=5, max_value=40, value=st.session_state.fig_width, step=1, key="fig_width")
-    fig_height = st.slider("Figure Height (inches)", min_value=5, max_value=25, value=st.session_state.fig_height, step=1, key="fig_height")
+    fig_width = st.slider(
+        "Figure Width (inches)",
+        min_value=5, max_value=40,
+        value=st.session_state.get('fig_width', DEFAULTS['fig_width']),
+        step=1, key="fig_width"
+    )
+    fig_height = st.slider(
+        "Figure Height (inches)",
+        min_value=5, max_value=25,
+        value=st.session_state.get('fig_height', DEFAULTS['fig_height']),
+        step=1, key="fig_height"
+    )
 
     st.subheader("Colors")
-    start_color = st.color_picker("Start color (earliest year)", value=st.session_state.start_color, key="start_color")
-    end_color = st.color_picker("End color (latest year)", value=st.session_state.end_color, key="end_color")
+    start_color = st.color_picker(
+        "Start color (earliest year)",
+        value=st.session_state.get('start_color', DEFAULTS['start_color']),
+        key="start_color"
+    )
+    end_color = st.color_picker(
+        "End color (latest year)",
+        value=st.session_state.get('end_color', DEFAULTS['end_color']),
+        key="end_color"
+    )
 
     st.subheader("Logo")
     logo_file = st.file_uploader("Upload logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
     if logo_file is not None:
-        logo_x = st.slider("Logo X position (px from left)", 0, 2000, value=st.session_state.logo_x, step=10, key="logo_x")
-        logo_y = st.slider("Logo Y position (px from bottom)", 0, 2000, value=st.session_state.logo_y, step=10, key="logo_y")
-        logo_size = st.slider("Logo max size (pixels)", 50, 500, value=st.session_state.logo_size, step=10, key="logo_size")
+        logo_x = st.slider(
+            "Logo X position (px from left)", 0, 2000,
+            value=st.session_state.get('logo_x', DEFAULTS['logo_x']),
+            step=10, key="logo_x"
+        )
+        logo_y = st.slider(
+            "Logo Y position (px from bottom)", 0, 2000,
+            value=st.session_state.get('logo_y', DEFAULTS['logo_y']),
+            step=10, key="logo_y"
+        )
+        logo_size = st.slider(
+            "Logo max size (pixels)", 50, 500,
+            value=st.session_state.get('logo_size', DEFAULTS['logo_size']),
+            step=10, key="logo_size"
+        )
     else:
-        logo_x, logo_y, logo_size = 50, 50, 150
+        logo_x, logo_y, logo_size = DEFAULTS['logo_x'], DEFAULTS['logo_y'], DEFAULTS['logo_size']
 
+# -----------------------------------
 # Building name input
-building_name = st.text_input("🏢 Enter building name or address for this stacking plan", "My Building")
+# -----------------------------------
 
-# File upload with error handling
+building_name = st.text_input(
+    "🏢 Enter building name or address for this stacking plan",
+    "My Building"
+)
+
+# -----------------------------------
+# File Upload & Processing
+# -----------------------------------
+
 uploaded_file = st.file_uploader("Upload your Excel file here (.xlsx)")
 
 required_columns = ['Floor', 'Suite Number', 'Tenant Name', 'Square Footage', 'Expiration Date']
@@ -88,7 +133,7 @@ if uploaded_file is not None:
         st.error(f"❌ Error reading Excel file: {e}")
         st.stop()
 
-    # Standardize fonts in Matplotlib
+    # Matplotlib style
     plt.rcParams.update({'font.family': 'sans-serif', 'font.size': 8})
 
     data['Expiration Date'] = pd.to_datetime(data['Expiration Date'])
@@ -122,7 +167,6 @@ if uploaded_file is not None:
         occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
     occupancy_text = " | ".join(occupancy_summary)
 
-    # Plot
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     y_pos = 0
     height = 1
@@ -151,7 +195,6 @@ if uploaded_file is not None:
             x_pos += width
         y_pos += height
 
-    # Format
     ax.set_xlabel('Proportional Suite Width (normalized per floor)', fontsize=10)
     ax.set_yticks([])
     ax.set_xticks([])
@@ -162,13 +205,11 @@ if uploaded_file is not None:
     ax.tick_params(bottom=False)
     plt.tight_layout()
 
-    # Logo
     if logo_file is not None:
         logo = Image.open(logo_file)
         logo.thumbnail((logo_size, logo_size))
         fig.figimage(logo, xo=logo_x, yo=logo_y, alpha=1, zorder=10)
 
-    # Legend
     legend_elements = [mpatches.Patch(facecolor=mcolors.to_hex(cmap(norm(y))), edgecolor='black', label=str(int(y))) for y in years]
     legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT'))
     legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry Date'))
@@ -176,10 +217,8 @@ if uploaded_file is not None:
     ax.text(0.5, -0.1, f"Total SF by Expiration Year: {occupancy_text}", transform=ax.transAxes, ha='center', va='top', fontsize=10, fontweight='bold')
     ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.2), ncol=len(legend_elements), fontsize=8)
 
-    # Show plot
     st.pyplot(fig)
 
-    # Download buttons
     pdf_buf = BytesIO()
     fig.savefig(pdf_buf, format="pdf", bbox_inches="tight")
     pdf_buf.seek(0)
