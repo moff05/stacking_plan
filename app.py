@@ -27,10 +27,7 @@ DEFAULTS = {
     'excel_file_content': None, # To store the binary content of the Excel file
     'excel_file_name': None,   # To store the name of the Excel file
     'logo_file_content': None, # To store the binary content of the logo
-    'logo_file_type': None,    # To store the type of the logo
-    'auto_size': True,         # New: Enable auto-sizing by default
-    'min_bar_height': 1.2,     # New: Minimum height per floor for readability
-    'text_padding_factor': 1.5 # New: Extra space factor for text comfort
+    'logo_file_type': None     # To store the type of the logo
 }
 
 # Initialize ALL session state variables with their defaults if they don't exist
@@ -39,94 +36,13 @@ for k, v in DEFAULTS.items():
         st.session_state[k] = v
 
 # -----------------------------------
-# Auto-sizing calculation function
-# -----------------------------------
-def calculate_optimal_dimensions(data, building_name, auto_size=True, min_bar_height=1.2, text_padding_factor=1.5):
-    """
-    Calculate optimal figure dimensions based on content.
-    
-    Args:
-        data: DataFrame with the stacking plan data
-        building_name: String for the building name
-        auto_size: Boolean to enable/disable auto-sizing
-        min_bar_height: Minimum height per floor for readability
-        text_padding_factor: Factor to add extra space for text comfort
-    
-    Returns:
-        tuple: (optimal_width, optimal_height)
-    """
-    if not auto_size:
-        return st.session_state.fig_width, st.session_state.fig_height
-    
-    # Calculate number of floors
-    num_floors = len(data['Floor'].unique())
-    
-    # Calculate maximum text length per floor to determine width needs
-    max_text_length = 0
-    floors = data['Floor'].unique()
-    
-    for floor in floors:
-        floor_data = data[data['Floor'] == floor]
-        for _, row in floor_data.iterrows():
-            tenant = str(row['Tenant Name'])
-            suite = str(row['Suite Number'])
-            suite_sf = row['Square Footage']
-            expiry = row['Expiration Date'].strftime('%Y-%m-%d') if pd.notna(row['Expiration Date']) else 'No Expiry'
-            
-            # Calculate text length for both lines
-            line1 = f"Suite {suite} | {tenant}"
-            line2 = f"{suite_sf} SF | {expiry}"
-            
-            max_line_length = max(len(line1), len(line2))
-            max_text_length = max(max_text_length, max_line_length)
-    
-    # Calculate width based on content
-    # Base width calculation: consider building name length and maximum suite text
-    building_name_length = len(building_name) if building_name else 20
-    title_width_needed = building_name_length * 0.15  # Rough character-to-inch conversion
-    
-    # Calculate width needed for suite text (accounting for proportional layout)
-    content_width_needed = max_text_length * 0.08  # Character-to-inch for suite text
-    
-    # Minimum width for readability and proportions
-    min_width = 12
-    calculated_width = max(min_width, title_width_needed + 8, content_width_needed + 6)
-    
-    # Apply text padding factor
-    optimal_width = calculated_width * text_padding_factor
-    
-    # Cap maximum width for practical display
-    optimal_width = min(optimal_width, 35)
-    
-    # Calculate height based on number of floors
-    base_height_per_floor = max(min_bar_height, 1.0)
-    calculated_height = num_floors * base_height_per_floor
-    
-    # Add extra space for title, legend, and padding
-    title_space = 2
-    legend_space = 2
-    padding_space = 2
-    
-    optimal_height = calculated_height + title_space + legend_space + padding_space
-    
-    # Apply text padding factor to height as well
-    optimal_height *= text_padding_factor
-    
-    # Set reasonable bounds
-    optimal_height = max(8, min(optimal_height, 25))
-    optimal_width = max(10, optimal_width)
-    
-    return optimal_width, optimal_height
-
-# -----------------------------------
 # Reset Settings Function
 # -----------------------------------
 def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
     # Settings to reset (exclude file-related keys)
     settings_to_reset = ['start_color', 'end_color', 'fig_width', 'fig_height', 
-                        'logo_x', 'logo_y', 'logo_size', 'building_name', 
-                        'auto_size', 'min_bar_height', 'text_padding_factor']
+                        'logo_x', 'logo_y', 'logo_size', 'building_name']
     
     # Reset the actual session state values
     for setting in settings_to_reset:
@@ -135,8 +51,7 @@ def reset_settings():
     # Also reset the widget keys to force UI update
     widget_keys_to_reset = ['fig_width_slider', 'fig_height_slider', 'start_color_picker', 
                            'end_color_picker', 'logo_x_slider', 'logo_y_slider', 
-                           'logo_size_slider', 'building_name_input', 'auto_size_toggle',
-                           'min_bar_height_slider', 'text_padding_slider']
+                           'logo_size_slider', 'building_name_input']
     
     for key in widget_keys_to_reset:
         if key in st.session_state:
@@ -158,14 +73,8 @@ def reset_settings():
                     st.session_state[key] = DEFAULTS['logo_y']
                 elif key == 'logo_size_slider':
                     st.session_state[key] = DEFAULTS['logo_size']
-                elif key == 'min_bar_height_slider':
-                    st.session_state[key] = DEFAULTS['min_bar_height']
-                elif key == 'text_padding_slider':
-                    st.session_state[key] = DEFAULTS['text_padding_factor']
             elif key == 'building_name_input':
                 st.session_state[key] = DEFAULTS['building_name']
-            elif key == 'auto_size_toggle':
-                st.session_state[key] = DEFAULTS['auto_size']
     
     # Force a rerun to update the UI with reset values
     st.rerun()
@@ -195,59 +104,27 @@ with st.sidebar:
     if st.button("🔄 Reset All Settings", type="secondary", use_container_width=True):
         reset_settings()
 
-    # Auto-sizing toggle
-    st.subheader("🤖 Auto-Sizing")
-    auto_size = st.toggle(
-        "Enable automatic chart sizing",
-        value=st.session_state.auto_size,
-        key="auto_size_toggle",
-        help="When enabled, the chart dimensions will automatically adjust based on your data content for optimal readability."
+    # Chart size sliders
+    st.subheader("Chart Size")
+    # Use the widget keys directly and sync with session state
+    fig_width = st.slider(
+        "Figure Width (inches)",
+        min_value=5, max_value=40,
+        value=st.session_state.fig_width,
+        step=1, key="fig_width_slider"
     )
-    st.session_state.auto_size = auto_size
+    st.session_state.fig_width = fig_width
     
-    # Auto-sizing parameters (only show when auto-sizing is enabled)
-    if auto_size:
-        min_bar_height = st.slider(
-            "Minimum floor height",
-            min_value=0.8, max_value=2.5, 
-            value=st.session_state.min_bar_height,
-            step=0.1, key="min_bar_height_slider",
-            help="Minimum height per floor for text readability"
-        )
-        st.session_state.min_bar_height = min_bar_height
-        
-        text_padding_factor = st.slider(
-            "Text comfort factor",
-            min_value=1.0, max_value=2.5,
-            value=st.session_state.text_padding_factor,
-            step=0.1, key="text_padding_slider",
-            help="Increases spacing around text for better readability (1.0 = tight, 2.0 = very spacious)"
-        )
-        st.session_state.text_padding_factor = text_padding_factor
-
-    # Manual chart size sliders (only show when auto-sizing is disabled)
-    if not auto_size:
-        st.subheader("📏 Manual Chart Size")
-        fig_width = st.slider(
-            "Figure Width (inches)",
-            min_value=5, max_value=40,
-            value=st.session_state.fig_width,
-            step=1, key="fig_width_slider"
-        )
-        st.session_state.fig_width = fig_width
-        
-        fig_height = st.slider(
-            "Figure Height (inches)",
-            min_value=5, max_value=25,
-            value=st.session_state.fig_height,
-            step=1, key="fig_height_slider"
-        )
-        st.session_state.fig_height = fig_height
-    else:
-        st.info("📐 Chart size is automatically calculated based on your data when auto-sizing is enabled.")
+    fig_height = st.slider(
+        "Figure Height (inches)",
+        min_value=5, max_value=25,
+        value=st.session_state.fig_height,
+        step=1, key="fig_height_slider"
+    )
+    st.session_state.fig_height = fig_height
 
     # Color pickers
-    st.subheader("🎨 Colors")
+    st.subheader("Colors")
     start_color = st.color_picker(
         "Start color (earliest year)",
         value=st.session_state.start_color,
@@ -263,7 +140,7 @@ with st.sidebar:
     st.session_state.end_color = end_color
 
     # Logo upload + controls
-    st.subheader("🖼️ Logo")
+    st.subheader("Logo")
     # File uploader gets its own key. Its output is handled to persist content.
     new_logo_file_uploader = st.file_uploader("Upload logo (PNG/JPG)", type=["png", "jpg", "jpeg"], key="logo_uploader")
 
@@ -298,6 +175,9 @@ with st.sidebar:
             value=st.session_state.logo_size, step=10, key="logo_size_slider"
         )
         st.session_state.logo_size = logo_size
+    # else:
+    #     # If no logo is uploaded/persisted, these values will remain at their defaults from session_state initialization
+    #     pass
 
 # Building name input stays in main UI for better visibility
 building_name = st.text_input(
@@ -341,19 +221,6 @@ if excel_file_to_process is not None:
         st.session_state['excel_file_name'] = None
         st.stop()
 
-    # Calculate optimal dimensions
-    optimal_width, optimal_height = calculate_optimal_dimensions(
-        data, 
-        st.session_state.building_name,
-        st.session_state.auto_size,
-        st.session_state.min_bar_height,
-        st.session_state.text_padding_factor
-    )
-    
-    # Display current dimensions info
-    if st.session_state.auto_size:
-        st.info(f"🤖 Auto-calculated chart size: {optimal_width:.1f}\" × {optimal_height:.1f}\" (W×H)")
-
     # Matplotlib style
     plt.rcParams.update({'font.family': 'sans-serif', 'font.size': 8})
 
@@ -369,6 +236,7 @@ if excel_file_to_process is not None:
         years = np.sort(years_data.unique())
         if len(years) == 1: # Handle case with only one unique year
             years = np.array([years[0], years[0] + 1])
+
 
     cmap = LinearSegmentedColormap.from_list("custom_gradient", [st.session_state.start_color, st.session_state.end_color])
     norm = mcolors.Normalize(vmin=years.min(), vmax=years.max())
@@ -396,8 +264,7 @@ if excel_file_to_process is not None:
         occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
     occupancy_text = " | ".join(occupancy_summary)
 
-    # Use the calculated optimal dimensions
-    fig, ax = plt.subplots(figsize=(optimal_width, optimal_height))
+    fig, ax = plt.subplots(figsize=(st.session_state.fig_width, st.session_state.fig_height))
 
     y_pos = 0
     height = 1
@@ -429,12 +296,9 @@ if excel_file_to_process is not None:
             line1 = f"Suite {suite} | {tenant}"
             line2 = f"{suite_sf} SF | {expiry}"
             
-            # Dynamic font size based on chart size and bar width
-            font_size = max(4, min(8, optimal_height * 0.4))
-            
             ax.text(x=x_pos + width/2, y=y_pos,
                             s=f"{line1}\n{line2}",
-                            ha='center', va='center', fontsize=font_size)
+                            ha='center', va='center', fontsize=6)
 
             x_pos += width
 
