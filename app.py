@@ -20,9 +20,9 @@ DEFAULTS = {
     'end_color': "#00FF00",
     'fig_width': 25,
     'fig_height': 14,
-    'logo_x': 50,
-    'logo_y': 50,
-    'logo_size': 150,
+    'logo_x_percent': 85,  # Changed to percentage-based positioning, default top right
+    'logo_y_percent': 85,  # Changed to percentage-based positioning, default top right
+    'logo_size': 200,      # Increased default size
     'building_name': "My Building",
     'excel_file_content': None, # To store the binary content of the Excel file
     'excel_file_name': None,    # To store the name of the Excel file
@@ -42,7 +42,7 @@ def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
     # Settings to reset (exclude file-related keys)
     settings_to_reset = ['start_color', 'end_color', 'fig_width', 'fig_height',
-                          'logo_x', 'logo_y', 'logo_size', 'building_name']
+                          'logo_x_percent', 'logo_y_percent', 'logo_size', 'building_name']
     
     # Reset the actual session state values
     for setting in settings_to_reset:
@@ -68,9 +68,9 @@ def reset_settings():
                 elif key == 'fig_height_slider':
                     st.session_state[key] = DEFAULTS['fig_height']
                 elif key == 'logo_x_slider':
-                    st.session_state[key] = DEFAULTS['logo_x']
+                    st.session_state[key] = DEFAULTS['logo_x_percent']
                 elif key == 'logo_y_slider':
-                    st.session_state[key] = DEFAULTS['logo_y']
+                    st.session_state[key] = DEFAULTS['logo_y_percent']
                 elif key == 'logo_size_slider':
                     st.session_state[key] = DEFAULTS['logo_size']
             elif key == 'building_name_input':
@@ -158,21 +158,55 @@ with st.sidebar:
 
     # Display logo settings only if there's a logo in session state (meaning a file has been uploaded)
     if logo_file_to_display is not None:
-        logo_x = st.slider(
-            "Logo X position (pixels from left)", 0, 2000,
-            value=st.session_state.logo_x, step=10, key="logo_x_slider"
-        )
-        st.session_state.logo_x = logo_x
+        st.write("**Logo Position & Size**")
         
-        logo_y = st.slider(
-            "Logo Y position (pixels from bottom)", 0, 2000,
-            value=st.session_state.logo_y, step=10, key="logo_y_slider"
+        # Position presets for easier adjustment
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("↖️ Top Left", use_container_width=True):
+                st.session_state.logo_x_percent = 5
+                st.session_state.logo_y_percent = 85
+                st.rerun()
+            if st.button("↙️ Bottom Left", use_container_width=True):
+                st.session_state.logo_x_percent = 5
+                st.session_state.logo_y_percent = 15
+                st.rerun()
+        
+        with col2:
+            if st.button("↗️ Top Right", use_container_width=True):
+                st.session_state.logo_x_percent = 85
+                st.session_state.logo_y_percent = 85
+                st.rerun()
+            if st.button("↘️ Bottom Right", use_container_width=True):
+                st.session_state.logo_x_percent = 85
+                st.session_state.logo_y_percent = 15
+                st.rerun()
+        
+        if st.button("🎯 Center", use_container_width=True):
+            st.session_state.logo_x_percent = 50
+            st.session_state.logo_y_percent = 50
+            st.rerun()
+        
+        st.write("**Fine-tune Position:**")
+        
+        logo_x_percent = st.slider(
+            "Horizontal position (%)", 0, 100,
+            value=st.session_state.logo_x_percent, step=1, key="logo_x_slider",
+            help="0% = far left, 100% = far right"
         )
-        st.session_state.logo_y = logo_y
+        st.session_state.logo_x_percent = logo_x_percent
+        
+        logo_y_percent = st.slider(
+            "Vertical position (%)", 0, 100,
+            value=st.session_state.logo_y_percent, step=1, key="logo_y_slider",
+            help="0% = bottom, 100% = top"
+        )
+        st.session_state.logo_y_percent = logo_y_percent
         
         logo_size = st.slider(
-            "Logo max size (pixels)", 50, 500,
-            value=st.session_state.logo_size, step=10, key="logo_size_slider"
+            "Logo max size (pixels)", 50, 800,
+            value=st.session_state.logo_size, step=10, key="logo_size_slider",
+            help="Maximum width or height of the logo"
         )
         st.session_state.logo_size = logo_size
 
@@ -268,7 +302,6 @@ if excel_file_to_process is not None:
         occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
     if vacant_total > 0:
         occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
-    # occupancy_text = " | ".join(occupancy_summary) # This is no longer used directly as part of ax.text
 
     fig, ax = plt.subplots(figsize=(st.session_state.fig_width, st.session_state.fig_height))
 
@@ -338,10 +371,24 @@ if excel_file_to_process is not None:
 
     plt.tight_layout()
 
+    # Add logo with percentage-based positioning
     if logo_file_to_display is not None:
         logo = Image.open(logo_file_to_display)
         logo.thumbnail((int(st.session_state.logo_size), int(st.session_state.logo_size)))
-        fig.figimage(logo, xo=int(st.session_state.logo_x), yo=int(st.session_state.logo_y), alpha=1, zorder=10)
+        
+        # Calculate position based on percentage of figure size
+        fig_width_px = fig.get_figwidth() * fig.dpi
+        fig_height_px = fig.get_figheight() * fig.dpi
+        
+        # Convert percentage to pixel position
+        logo_x_px = int((st.session_state.logo_x_percent / 100) * fig_width_px - logo.size[0] / 2)
+        logo_y_px = int((st.session_state.logo_y_percent / 100) * fig_height_px - logo.size[1] / 2)
+        
+        # Ensure logo stays within figure bounds
+        logo_x_px = max(0, min(logo_x_px, fig_width_px - logo.size[0]))
+        logo_y_px = max(0, min(logo_y_px, fig_height_px - logo.size[1]))
+        
+        fig.figimage(logo, xo=logo_x_px, yo=logo_y_px, alpha=1, zorder=10)
 
     # --- Add Occupancy Percentage Text ---
     # Position it relative to the axes for consistent placement above the legend
