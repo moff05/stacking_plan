@@ -20,6 +20,9 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
+# 🏢 Building name input
+building_name = st.text_input("🏢 Enter building name or address for this stacking plan", "My Building")
+
 # 🎨 Color pickers for gradient
 start_color = st.color_picker("🎨 Choose start color (earliest expiration year)", "#FF0000")
 end_color = st.color_picker("🎨 Choose end color (latest expiration year)", "#00FF00")
@@ -77,11 +80,11 @@ if uploaded_file is not None:
     for year, total_sf in year_totals.items():
         occupancy_summary.append(f"{int(year)}: {int(total_sf):,} SF")
 
-    if vacant_total > 0:
-        occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
-
     if no_expiry_total > 0:
         occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
+
+    if vacant_total > 0:
+        occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
 
     occupancy_text = " | ".join(occupancy_summary)
 
@@ -128,7 +131,7 @@ if uploaded_file is not None:
     ax.set_xlabel('Proportional Suite Width (normalized per floor)')
     ax.set_yticks([])
     ax.set_xticks([])
-    ax.set_title('Stacking Plan', fontsize=14, fontweight='bold')
+    ax.set_title(f'Stacking Plan - {building_name}', fontsize=14, fontweight='bold')  # 🆕 Updated title
     ax.invert_yaxis()
 
     for spine in ax.spines.values():
@@ -181,7 +184,7 @@ if uploaded_file is not None:
     st.download_button(
         label="Download Stacking Plan as PDF",
         data=pdf_buf,
-        file_name="stacking_plan.pdf",
+        file_name=f"{building_name}_stacking_plan.pdf",
         mime="application/pdf"
     )
 
@@ -192,7 +195,7 @@ if uploaded_file is not None:
     st.download_button(
         label="Download Stacking Plan as PNG",
         data=png_buf,
-        file_name="stacking_plan.png",
+        file_name=f"{building_name}_stacking_plan.png",
         mime="application/png"
     )
 
