@@ -44,8 +44,37 @@ def reset_settings():
     settings_to_reset = ['start_color', 'end_color', 'fig_width', 'fig_height', 
                         'logo_x', 'logo_y', 'logo_size', 'building_name']
     
+    # Reset the actual session state values
     for setting in settings_to_reset:
         st.session_state[setting] = DEFAULTS[setting]
+    
+    # Also reset the widget keys to force UI update
+    widget_keys_to_reset = ['fig_width_slider', 'fig_height_slider', 'start_color_picker', 
+                           'end_color_picker', 'logo_x_slider', 'logo_y_slider', 
+                           'logo_size_slider', 'building_name_input']
+    
+    for key in widget_keys_to_reset:
+        if key in st.session_state:
+            if 'color' in key:
+                # Reset color picker keys
+                if key == 'start_color_picker':
+                    st.session_state[key] = DEFAULTS['start_color']
+                elif key == 'end_color_picker':
+                    st.session_state[key] = DEFAULTS['end_color']
+            elif 'slider' in key:
+                # Reset slider keys
+                if key == 'fig_width_slider':
+                    st.session_state[key] = DEFAULTS['fig_width']
+                elif key == 'fig_height_slider':
+                    st.session_state[key] = DEFAULTS['fig_height']
+                elif key == 'logo_x_slider':
+                    st.session_state[key] = DEFAULTS['logo_x']
+                elif key == 'logo_y_slider':
+                    st.session_state[key] = DEFAULTS['logo_y']
+                elif key == 'logo_size_slider':
+                    st.session_state[key] = DEFAULTS['logo_size']
+            elif key == 'building_name_input':
+                st.session_state[key] = DEFAULTS['building_name']
     
     # Force a rerun to update the UI with reset values
     st.rerun()
@@ -77,32 +106,38 @@ with st.sidebar:
 
     # Chart size sliders
     st.subheader("Chart Size")
-    # Set value from session_state and update session_state on change
-    st.session_state.fig_width = st.slider(
+    # Use the widget keys directly and sync with session state
+    fig_width = st.slider(
         "Figure Width (inches)",
         min_value=5, max_value=40,
         value=st.session_state.fig_width,
-        step=1, key="fig_width_slider" # Important for consistent state management
+        step=1, key="fig_width_slider"
     )
-    st.session_state.fig_height = st.slider(
+    st.session_state.fig_width = fig_width
+    
+    fig_height = st.slider(
         "Figure Height (inches)",
         min_value=5, max_value=25,
         value=st.session_state.fig_height,
-        step=1, key="fig_height_slider" # Important for consistent state management
+        step=1, key="fig_height_slider"
     )
+    st.session_state.fig_height = fig_height
 
     # Color pickers
     st.subheader("Colors")
-    st.session_state.start_color = st.color_picker(
+    start_color = st.color_picker(
         "Start color (earliest year)",
         value=st.session_state.start_color,
-        key="start_color_picker" # Important for consistent state management
+        key="start_color_picker"
     )
-    st.session_state.end_color = st.color_picker(
+    st.session_state.start_color = start_color
+    
+    end_color = st.color_picker(
         "End color (latest year)",
         value=st.session_state.end_color,
-        key="end_color_picker" # Important for consistent state management
+        key="end_color_picker"
     )
+    st.session_state.end_color = end_color
 
     # Logo upload + controls
     st.subheader("Logo")
@@ -123,28 +158,34 @@ with st.sidebar:
 
     # Display logo settings only if there's a logo in session state (meaning a file has been uploaded)
     if logo_file_to_display is not None:
-        st.session_state.logo_x = st.slider(
+        logo_x = st.slider(
             "Logo X position (pixels from left)", 0, 2000,
             value=st.session_state.logo_x, step=10, key="logo_x_slider"
         )
-        st.session_state.logo_y = st.slider(
+        st.session_state.logo_x = logo_x
+        
+        logo_y = st.slider(
             "Logo Y position (pixels from bottom)", 0, 2000,
             value=st.session_state.logo_y, step=10, key="logo_y_slider"
         )
-        st.session_state.logo_size = st.slider(
+        st.session_state.logo_y = logo_y
+        
+        logo_size = st.slider(
             "Logo max size (pixels)", 50, 500,
             value=st.session_state.logo_size, step=10, key="logo_size_slider"
         )
+        st.session_state.logo_size = logo_size
     # else:
     #     # If no logo is uploaded/persisted, these values will remain at their defaults from session_state initialization
     #     pass
 
 # Building name input stays in main UI for better visibility
-st.session_state.building_name = st.text_input(
+building_name = st.text_input(
     "🏢 Enter building name or address for this stacking plan",
     value=st.session_state.building_name,
     key="building_name_input"
 )
+st.session_state.building_name = building_name
 
 # File upload for stacking data
 new_excel_file_uploader = st.file_uploader("Upload your Excel file here (.xlsx)", key="excel_uploader")
