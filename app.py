@@ -43,16 +43,16 @@ def reset_settings():
     # Settings to reset (exclude file-related keys)
     settings_to_reset = ['start_color', 'end_color', 'fig_width', 'fig_height',
                           'logo_x_percent', 'logo_y_percent', 'logo_size', 'building_name']
-    
+
     # Reset the actual session state values
     for setting in settings_to_reset:
         st.session_state[setting] = DEFAULTS[setting]
-    
+
     # Also reset the widget keys to force UI update
     widget_keys_to_reset = ['fig_width_slider', 'fig_height_slider', 'start_color_picker',
                             'end_color_picker', 'logo_x_slider', 'logo_y_slider',
                             'logo_size_slider', 'building_name_input']
-    
+
     for key in widget_keys_to_reset:
         if key in st.session_state:
             if 'color' in key:
@@ -75,7 +75,7 @@ def reset_settings():
                     st.session_state[key] = DEFAULTS['logo_size']
             elif key == 'building_name_input':
                 st.session_state[key] = DEFAULTS['building_name']
-    
+
     # Force a rerun to update the UI with reset values
     st.rerun()
 
@@ -99,7 +99,7 @@ st.download_button(
 # Move all controls into sidebar
 with st.sidebar:
     st.header("Settings")
-    
+
     # Add Reset Settings button at the top of the sidebar
     if st.button("🔄 Reset All Settings", type="secondary", use_container_width=True):
         reset_settings()
@@ -114,7 +114,7 @@ with st.sidebar:
         step=1, key="fig_width_slider"
     )
     st.session_state.fig_width = fig_width
-    
+
     fig_height = st.slider(
         "Figure Height (inches)",
         min_value=5, max_value=25,
@@ -131,7 +131,7 @@ with st.sidebar:
         key="start_color_picker"
     )
     st.session_state.start_color = start_color
-    
+
     end_color = st.color_picker(
         "End color (latest year)",
         value=st.session_state.end_color,
@@ -148,7 +148,7 @@ with st.sidebar:
     if new_logo_file_uploader is not None:
         st.session_state['logo_file_content'] = new_logo_file_uploader.getvalue()
         st.session_state['logo_file_type'] = new_logo_file_uploader.type
-    
+
     # Use the logo content from session state if available
     logo_file_to_display = None
     if st.session_state.get('logo_file_content') is not None:
@@ -159,7 +159,7 @@ with st.sidebar:
     # Display logo settings only if there's a logo in session state (meaning a file has been uploaded)
     if logo_file_to_display is not None:
         st.write("**Logo Position & Size**")
-        
+
         # Position presets for easier adjustment
         col1, col2 = st.columns(2)
         with col1:
@@ -171,7 +171,7 @@ with st.sidebar:
                 st.session_state.logo_x_percent = 2
                 st.session_state.logo_y_percent = 2
                 st.rerun()
-        
+
         with col2:
             if st.button("↗️ Top Right", use_container_width=True):
                 st.session_state.logo_x_percent = 98
@@ -181,28 +181,28 @@ with st.sidebar:
                 st.session_state.logo_x_percent = 98
                 st.session_state.logo_y_percent = 2
                 st.rerun()
-        
+
         if st.button("🎯 Center", use_container_width=True):
             st.session_state.logo_x_percent = 50
             st.session_state.logo_y_percent = 50
             st.rerun()
-        
+
         st.write("**Fine-tune Position:**")
-        
+
         logo_x_percent = st.slider(
             "Horizontal position (%)", 0, 100,
             value=st.session_state.logo_x_percent, step=1, key="logo_x_slider",
             help="0% = far left, 100% = far right"
         )
         st.session_state.logo_x_percent = logo_x_percent
-        
+
         logo_y_percent = st.slider(
             "Vertical position (%)", 0, 100,
             value=st.session_state.logo_y_percent, step=1, key="logo_y_slider",
             help="0% = bottom, 100% = top"
         )
         st.session_state.logo_y_percent = logo_y_percent
-        
+
         logo_size = st.slider(
             "Logo max size (pixels)", 50, 800,
             value=st.session_state.logo_size, step=10, key="logo_size_slider",
@@ -323,10 +323,10 @@ if excel_file_to_process is not None:
             suite_sf = row['Square Footage']
             tenant = row['Tenant Name']
             suite = row['Suite Number']
-            
+
             # Handle division by zero for floors with 0 SF total (though unlikely with valid data)
             width = suite_sf / floor_sum * plot_width if floor_sum > 0 else 0
-            
+
             color = get_color(row)
 
             ax.barh(y=y_pos, width=width, height=height, left=x_pos,
@@ -371,68 +371,76 @@ if excel_file_to_process is not None:
 
     plt.tight_layout()
 
+    # Add logo with percentage-based positioning
     # Add logo with percentage-based positioning relative to the chart area
     if logo_file_to_display is not None:
         logo = Image.open(logo_file_to_display)
-    
+
+        # Resize logo to exact size instead of using thumbnail
         logo_size_px = int(st.session_state.logo_size)
+        # Calculate aspect ratio to maintain proportions
         aspect_ratio = logo.size[0] / logo.size[1]
-        if logo.size[0] > logo.size[1]:
+        if logo.size[0] > logo.size[1]:  # Wider than tall
             new_width = logo_size_px
             new_height = int(logo_size_px / aspect_ratio)
-        else:
+        else:  # Taller than wide or square
             new_height = logo_size_px
             new_width = int(logo_size_px * aspect_ratio)
-    
+
         logo = logo.resize((new_width, new_height), Image.Resampling.LANCZOS)
-    
+
+        # Get figure dimensions in pixels
+        # Get the axes position in figure coordinates
+        bbox = ax.get_position()  # Returns Bbox object with x0, y0, x1, y1 in figure coordinates (0-1)
         fig_width_px = fig.get_figwidth() * fig.dpi
         fig_height_px = fig.get_figheight() * fig.dpi
-    
-        # Preset corners use full figure coordinates
-        preset = None
-        if st.session_state.logo_x_percent == 2 and st.session_state.logo_y_percent == 98:
-            preset = "top_left"
-        elif st.session_state.logo_x_percent == 98 and st.session_state.logo_y_percent == 98:
-            preset = "top_right"
-        elif st.session_state.logo_x_percent == 2 and st.session_state.logo_y_percent == 2:
-            preset = "bottom_left"
-        elif st.session_state.logo_x_percent == 98 and st.session_state.logo_y_percent == 2:
-            preset = "bottom_right"
-    
-        if preset == "top_left":
+
+        # Calculate logo position based on percentage of entire figure
+        # For corner positioning, align logo edges with figure edges
+        if st.session_state.logo_x_percent <= 5:  # Left edge
             logo_x_px = 0
-            logo_y_px = 0
-        elif preset == "top_right":
+        elif st.session_state.logo_x_percent >= 95:  # Right edge
             logo_x_px = int(fig_width_px - logo.size[0])
+        else:  # Anywhere in between, center the logo on the percentage point
+            logo_x_px = int((st.session_state.logo_x_percent / 100) * fig_width_px - logo.size[0] / 2)
+        # Calculate actual chart area in pixels
+        chart_left_px = bbox.x0 * fig_width_px
+        chart_right_px = bbox.x1 * fig_width_px
+        chart_bottom_px = bbox.y0 * fig_height_px
+        chart_top_px = bbox.y1 * fig_height_px
+
+        if st.session_state.logo_y_percent <= 5:  # Bottom edge
             logo_y_px = 0
-        elif preset == "bottom_left":
-            logo_x_px = 0
+        elif st.session_state.logo_y_percent >= 95:  # Top edge
             logo_y_px = int(fig_height_px - logo.size[1])
-        elif preset == "bottom_right":
-            logo_x_px = int(fig_width_px - logo.size[0])
-            logo_y_px = int(fig_height_px - logo.size[1])
-        else:
-            # For slider-based fine-tuned positioning within chart area
-            bbox = ax.get_position()
-            chart_left_px = bbox.x0 * fig_width_px
-            chart_right_px = bbox.x1 * fig_width_px
-            chart_bottom_px = bbox.y0 * fig_height_px
-            chart_top_px = bbox.y1 * fig_height_px
-    
-            chart_width_px = chart_right_px - chart_left_px
-            chart_height_px = chart_top_px - chart_bottom_px
-    
+        else:  # Anywhere in between, center the logo on the percentage point
+            logo_y_px = int((st.session_state.logo_y_percent / 100) * fig_height_px - logo.size[1] / 2)
+        chart_width_px = chart_right_px - chart_left_px
+        chart_height_px = chart_top_px - chart_bottom_px
+
+        # Ensure logo stays within figure bounds
+        logo_x_px = max(0, min(logo_x_px, int(fig_width_px - logo.size[0])))
+        logo_y_px = max(0, min(logo_y_px, int(fig_height_px - logo.size[1])))
+        # Calculate logo position based on percentage within the chart area
+        if st.session_state.logo_x_percent <= 5:  # Left edge - align left edge of logo with left edge of chart
+            logo_x_px = int(chart_left_px)
+        elif st.session_state.logo_x_percent >= 95:  # Right edge - align right edge of logo with right edge of chart
+            logo_x_px = int(chart_right_px - logo.size[0])
+        else:  # Anywhere in between, position relative to chart area
             logo_x_px = int(chart_left_px + (st.session_state.logo_x_percent / 100) * chart_width_px - logo.size[0] / 2)
+        
+        if st.session_state.logo_y_percent <= 5:  # Bottom edge - align bottom edge of logo with bottom edge of chart
+            logo_y_px = int(chart_bottom_px)
+        elif st.session_state.logo_y_percent >= 95:  # Top edge - align top edge of logo with top edge of chart
+            logo_y_px = int(chart_top_px - logo.size[1])
+        else:  # Anywhere in between, position relative to chart area
             logo_y_px = int(chart_bottom_px + (st.session_state.logo_y_percent / 100) * chart_height_px - logo.size[1] / 2)
-    
-            # Clamp within chart area
-            logo_x_px = max(int(chart_left_px), min(logo_x_px, int(chart_right_px - logo.size[0])))
-            logo_y_px = max(int(chart_bottom_px), min(logo_y_px, int(chart_top_px - logo.size[1])))
+        
+        # Ensure logo stays within chart bounds
+        logo_x_px = max(int(chart_left_px), min(logo_x_px, int(chart_right_px - logo.size[0])))
+        logo_y_px = max(int(chart_bottom_px), min(logo_y_px, int(chart_top_px - logo.size[1])))
 
-    fig.figimage(logo, xo=logo_x_px, yo=logo_y_px, alpha=1, zorder=10)
-
-# This ensures presets use entire figure corners while sliders continue chart-relative.
+        fig.figimage(logo, xo=logo_x_px, yo=logo_y_px, alpha=1, zorder=10)
 
     # --- Add Occupancy Percentage Text ---
     # Position it relative to the axes for consistent placement above the legend
@@ -451,13 +459,13 @@ if excel_file_to_process is not None:
         year_sf = year_totals.get(year, 0)
         label = f"{int(year)} ({int(year_sf):,} SF)" if year_sf > 0 else str(int(year))
         legend_elements.append(mpatches.Patch(facecolor=color, edgecolor='black', label=label))
-    
+
     # Add VACANT with square footage if any
     if vacant_total > 0:
         legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label=f'VACANT ({int(vacant_total):,} SF)'))
     else:
         legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT'))
-    
+
     # Add No Expiry with square footage if any
     if no_expiry_total > 0:
         legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label=f'No Expiry ({int(no_expiry_total):,} SF)'))
