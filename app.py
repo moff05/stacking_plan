@@ -323,17 +323,27 @@ if excel_file_to_process is not None:
         fig.figimage(logo, xo=int(st.session_state.logo_x), yo=int(st.session_state.logo_y), alpha=1, zorder=10)
 
     legend_elements = []
+    # Add expiration years with their square footage in the legend labels
     for year in years:
         color = mcolors.to_hex(cmap(norm(year)))
-        legend_elements.append(mpatches.Patch(facecolor=color, edgecolor='black', label=str(int(year))))
-    legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT'))
-    legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry Date'))
+        year_sf = year_totals.get(year, 0)
+        label = f"{int(year)} ({int(year_sf):,} SF)" if year_sf > 0 else str(int(year))
+        legend_elements.append(mpatches.Patch(facecolor=color, edgecolor='black', label=label))
+    
+    # Add VACANT with square footage if any
+    if vacant_total > 0:
+        legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label=f'VACANT ({int(vacant_total):,} SF)'))
+    else:
+        legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT'))
+    
+    # Add No Expiry with square footage if any
+    if no_expiry_total > 0:
+        legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label=f'No Expiry ({int(no_expiry_total):,} SF)'))
+    else:
+        legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry'))
 
-    ax.text(0.5, -0.1, f"Total SF by Expiration Year: {occupancy_text}",
-                            transform=ax.transAxes,
-                            ha='center', va='top', fontsize=10, fontweight='bold')
-
-    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.2),
+    # Remove the separate square footage summary text since it's now in the legend
+    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
                             ncol=len(legend_elements), fontsize=8)
 
     st.pyplot(fig)
