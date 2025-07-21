@@ -402,25 +402,23 @@ if excel_file_to_process is not None:
         chart_width_px = chart_right_px - chart_left_px
         chart_height_px = chart_top_px - chart_bottom_px
         
-        # Convert percentage to position within the chart area, accounting for logo size
-        # For corners, we want the logo edge to align with chart edge, not center
-        if st.session_state.logo_x_percent <= 5:  # Left edge
+        # Convert percentage to position within the chart area
+        # For true corner positioning, align logo edges with chart edges
+        if st.session_state.logo_x_percent <= 5:  # Left edge - align left edge of logo with left edge of chart
             logo_x_px = int(chart_left_px)
-        elif st.session_state.logo_x_percent >= 95:  # Right edge
+        elif st.session_state.logo_x_percent >= 95:  # Right edge - align right edge of logo with right edge of chart
             logo_x_px = int(chart_right_px - logo.size[0])
-        else:  # Anywhere in between, center the logo
+        else:  # Anywhere in between, center the logo on the percentage point
             logo_x_px = int(chart_left_px + (st.session_state.logo_x_percent / 100) * chart_width_px - logo.size[0] / 2)
         
-        if st.session_state.logo_y_percent <= 5:  # Bottom edge
+        if st.session_state.logo_y_percent <= 5:  # Bottom edge - align bottom edge of logo with bottom edge of chart  
             logo_y_px = int(chart_bottom_px)
-        elif st.session_state.logo_y_percent >= 95:  # Top edge
+        elif st.session_state.logo_y_percent >= 95:  # Top edge - align top edge of logo with top edge of chart
             logo_y_px = int(chart_top_px - logo.size[1])
-        else:  # Anywhere in between, center the logo
+        else:  # Anywhere in between, center the logo on the percentage point
             logo_y_px = int(chart_bottom_px + (st.session_state.logo_y_percent / 100) * chart_height_px - logo.size[1] / 2)
         
-        # Ensure logo stays within chart bounds
-        logo_x_px = max(int(chart_left_px), min(logo_x_px, int(chart_right_px - logo.size[0])))
-        logo_y_px = max(int(chart_bottom_px), min(logo_y_px, int(chart_top_px - logo.size[1])))
+        # Remove the bounds checking that was preventing true corner placement
         
         fig.figimage(logo, xo=logo_x_px, yo=logo_y_px, alpha=1, zorder=10)
 
