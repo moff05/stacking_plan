@@ -69,7 +69,7 @@ def reset_settings():
                 if key == 'fig_width_slider':
                     st.session_state[key] = DEFAULTS['fig_width']
                 elif key == 'fig_height_slider':
-                    st.session_state[key] = DEFAULTS['fig_height']
+                    st.session_state[key] = DEULTS['fig_height']
                 elif key == 'logo_x_slider':
                     st.session_state[key] = DEFAULTS['logo_x']
                 elif key == 'logo_y_slider':
@@ -217,17 +217,17 @@ st.download_button(
     label="📥 Download Excel Template",
     data=template_data,
     file_name="stacking_plan_template.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    help="Download an Excel template to easily format your data for the stacking plan."
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+st.info("Download an Excel template to easily format your data for the stacking plan.")
 
 # Move all controls into sidebar
 with st.sidebar:
     st.header("Settings")
     
     # Add Reset Settings button at the top of the sidebar
-    if st.button("🔄 Reset All Settings", type="secondary", use_container_width=True,
-                 help="Click to reset all chart and logo settings to their default values."):
+    if st.button("🔄 Reset All Settings", type="secondary", use_container_width=True):
+        st.info("Click to reset all chart and logo settings to their default values.")
         reset_settings()
 
     # Chart size sliders
@@ -236,46 +236,42 @@ with st.sidebar:
         "Figure Width (inches)",
         min_value=5, max_value=40,
         value=st.session_state.fig_width,
-        step=1, key="fig_width_slider",
-        help="Adjust the overall width of the generated stacking plan image."
+        step=1, key="fig_width_slider"
     )
-    st.session_state.fig_width = fig_width
+    st.markdown("💡 **Figure Width**: Adjusts the overall width of the generated stacking plan image.")
     
     fig_height = st.slider(
         "Figure Height (inches)",
         min_value=5, max_value=25,
         value=st.session_state.fig_height,
-        step=1, key="fig_height_slider",
-        help="Adjust the overall height of the generated stacking plan image."
+        step=1, key="fig_height_slider"
     )
-    st.session_state.fig_height = fig_height
+    st.markdown("💡 **Figure Height**: Adjusts the overall height of the generated stacking plan image.")
 
     # Color pickers
     st.subheader("Colors")
     start_color = st.color_picker(
         "Start color (earliest year)",
         value=st.session_state.start_color,
-        key="start_color_picker",
-        help="Select the color for the earliest lease expiration year. The gradient will transition from this color."
+        key="start_color_picker"
     )
-    st.session_state.start_color = start_color
+    st.markdown("💡 **Start Color**: Select the color for the earliest lease expiration year. The gradient will transition from this color.")
     
     end_color = st.color_picker(
         "End color (latest year)",
         value=st.session_state.end_color,
-        key="end_color_picker",
-        help="Select the color for the latest lease expiration year. The gradient will transition to this color."
+        key="end_color_picker"
     )
-    st.session_state.end_color = end_color
+    st.markdown("💡 **End Color**: Select the color for the latest lease expiration year. The gradient will transition to this color.")
 
     # Logo upload + controls
     st.subheader("Logo")
     new_logo_file_uploader = st.file_uploader(
         "Upload logo (PNG/JPG)",
         type=["png", "jpg", "jpeg"],
-        key="logo_uploader",
-        help="Upload your company logo to be displayed on the stacking plan. Recommended formats: PNG, JPG."
+        key="logo_uploader"
     )
+    st.info("Upload your company logo to be displayed on the stacking plan. Recommended formats: PNG, JPG.")
 
     if new_logo_file_uploader is not None:
         # Only update session state if a new file is indeed uploaded or content changed
@@ -296,40 +292,39 @@ with st.sidebar:
     if logo_file_to_display is not None:
         logo_x = st.slider(
             "Logo X position (pixels from left)", 0, 2000,
-            value=st.session_state.logo_x, step=10, key="logo_x_slider",
-            help="Adjust the horizontal position of the logo on the chart. 0 is the left edge of the plot."
+            value=st.session_state.logo_x, step=10, key="logo_x_slider"
         )
-        st.session_state.logo_x = logo_x
+        st.markdown("💡 **Logo X Position**: Adjusts the horizontal position of the logo on the chart. 0 is the left edge of the plot.")
         
         logo_y = st.slider(
             "Logo Y position (pixels from bottom)", 0, 2000,
-            value=st.session_state.logo_y, step=10, key="logo_y_slider",
-            help="Adjust the vertical position of the logo on the chart. 0 is the bottom edge of the plot."
+            value=st.session_state.logo_y, step=10, key="logo_y_slider"
         )
-        st.session_state.logo_y = logo_y
+        st.markdown("💡 **Logo Y Position**: Adjusts the vertical position of the logo on the chart. 0 is the bottom edge of the plot.")
         
         logo_size = st.slider(
             "Logo max size (pixels)", 50, 500,
-            value=st.session_state.logo_size, step=10, key="logo_size_slider",
-            help="Set the maximum width/height for the uploaded logo. The logo will scale down if larger."
+            value=st.session_state.logo_size, step=10, key="logo_size_slider"
         )
-        st.session_state.logo_size = logo_size
+        st.markdown("💡 **Logo Size**: Sets the maximum width/height for the uploaded logo. The logo will scale down if larger.")
 
 # Building name input stays in main UI for better visibility
 building_name = st.text_input(
     "🏢 Enter building name or address for this stacking plan",
     value=st.session_state.building_name,
-    key="building_name_input",
-    help="This text will appear as the main title of your stacking plan chart."
+    key="building_name_input"
 )
+st.markdown("💡 **Building Name**: This text will appear as the main title of your stacking plan chart.")
 st.session_state.building_name = building_name
 
 # File upload for stacking data
 new_excel_file_uploader = st.file_uploader(
     "Upload your Excel file here (.xlsx)",
-    key="excel_uploader",
-    help=f"Upload an Excel file containing your building's unit data. Required columns: {', '.join(REQUIRED_COLUMNS)}."
+    key="excel_uploader"
 )
+st.info(f"Upload an Excel file containing your building's unit data. **Required columns**: `{', '.join(REQUIRED_COLUMNS)}`.")
+st.markdown("If you don't have a file, you can download the **Excel Template** above for proper formatting.")
+
 
 # If a new Excel file is uploaded, store its content in session state
 if new_excel_file_uploader is not None:
@@ -340,8 +335,7 @@ if new_excel_file_uploader is not None:
         st.session_state['excel_file_name'] = new_excel_file_uploader.name
         st.success(f"✅ File '{new_excel_file_uploader.name}' uploaded successfully!")
 elif st.session_state.get('excel_file_content') is None:
-    st.info("⬆️ Please upload an Excel file to generate the stacking plan.")
-    st.markdown("You can download the template above to ensure correct column headers.")
+    pass # Initial state, message already shown by st.info and st.markdown above
 
 
 # Determine which file content to use for plotting:
@@ -352,96 +346,97 @@ if st.session_state.get('excel_file_content') is not None:
     excel_file_to_process.name = st.session_state['excel_file_name'] # Important for pandas to read it
 
 if excel_file_to_process is not None:
-    try:
-        data = pd.read_excel(excel_file_to_process)
-        
-        # Validate required columns
-        missing_cols = [col for col in REQUIRED_COLUMNS if col not in data.columns]
-        if missing_cols:
-            st.error(f"❌ Uploaded file is missing required columns: {', '.join(missing_cols)}. Please check the template.")
-            st.session_state['excel_file_content'] = None
-            st.session_state['excel_file_name'] = None
-            st.stop()
-
-        # Validate numeric columns
-        for col in ['Square Footage', 'Floor']:
-            if not pd.api.types.is_numeric_dtype(data[col]):
-                st.error(f"❌ Column '{col}' must contain numeric values. Please correct your Excel file.")
+    with st.spinner("📊 Generating stacking plan..."): # Add a spinner
+        try:
+            data = pd.read_excel(excel_file_to_process)
+            
+            # Validate required columns
+            missing_cols = [col for col in REQUIRED_COLUMNS if col not in data.columns]
+            if missing_cols:
+                st.error(f"❌ Uploaded file is missing required columns: {', '.join(missing_cols)}. Please check the template.")
                 st.session_state['excel_file_content'] = None
                 st.session_state['excel_file_name'] = None
                 st.stop()
-        
-        # Check for empty data after initial processing
-        if data.empty:
-            st.warning("⚠️ The uploaded Excel file contains no data or no valid rows after initial processing. Please ensure your file is not empty.")
+
+            # Validate numeric columns
+            for col in ['Square Footage', 'Floor']:
+                if not pd.api.types.is_numeric_dtype(data[col]):
+                    st.error(f"❌ Column '{col}' must contain numeric values. Please correct your Excel file.")
+                    st.session_state['excel_file_content'] = None
+                    st.session_state['excel_file_name'] = None
+                    st.stop()
+            
+            # Check for empty data after initial processing
+            if data.empty:
+                st.warning("⚠️ The uploaded Excel file contains no data or no valid rows after initial processing. Please ensure your file is not empty.")
+                st.session_state['excel_file_content'] = None
+                st.session_state['excel_file_name'] = None
+                st.stop()
+
+        except Exception as e:
+            st.error(f"❌ Error reading Excel file: {e}. Please ensure it's a valid .xlsx file and not corrupted.")
             st.session_state['excel_file_content'] = None
             st.session_state['excel_file_name'] = None
             st.stop()
 
-    except Exception as e:
-        st.error(f"❌ Error reading Excel file: {e}. Please ensure it's a valid .xlsx file.")
-        st.session_state['excel_file_content'] = None
-        st.session_state['excel_file_name'] = None
-        st.stop()
+        # Calculate Total Occupied SF and Total Available SF before plotting
+        total_available_sf = data['Square Footage'].sum()
+        if total_available_sf == 0:
+            st.warning("⚠️ Total square footage in the building is zero. Cannot calculate occupancy percentage or plot effectively.")
+            total_occupied_sf = 0
+            occupancy_percentage = 0
+            occupancy_percent_text = "N/A (Total SF is 0)"
+        else:
+            total_occupied_sf = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
+            occupancy_percentage = (total_occupied_sf / total_available_sf) * 100
+            occupancy_percent_text = f"{occupancy_percentage:.1f}% ({int(total_occupied_sf):,} / {int(total_available_sf):,} SF)"
 
-    # Calculate Total Occupied SF and Total Available SF before plotting
-    total_available_sf = data['Square Footage'].sum()
-    if total_available_sf == 0:
-        st.warning("⚠️ Total square footage in the building is zero. Cannot calculate occupancy percentage or plot effectively.")
-        total_occupied_sf = 0
-        occupancy_percentage = 0
-        occupancy_percent_text = "N/A (Total SF is 0)"
-    else:
-        total_occupied_sf = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
-        occupancy_percentage = (total_occupied_sf / total_available_sf) * 100
-        occupancy_percent_text = f"{occupancy_percentage:.1f}% ({int(total_occupied_sf):,} / {int(total_available_sf):,} SF)"
-
-    # Calculate year totals, no expiry, and vacant totals for the legend
-    year_totals = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT')].groupby('Expiration Year')['Square Footage'].sum()
-    no_expiry_total = data.loc[data['Expiration Year'].isna() & ~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
-    vacant_total = data.loc[data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
+        # Calculate year totals, no expiry, and vacant totals for the legend
+        year_totals = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT')].groupby('Expiration Year')['Square Footage'].sum()
+        no_expiry_total = data.loc[data['Expiration Year'].isna() & ~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
+        vacant_total = data.loc[data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
 
 
-    # Generate the plot using the function
-    fig = generate_stacking_plan_plot(
-        data,
-        st.session_state.building_name,
-        st.session_state.start_color,
-        st.session_state.end_color,
-        st.session_state.fig_width,
-        st.session_state.fig_height,
-        logo_file_to_display,
-        st.session_state.logo_x,
-        st.session_state.logo_y,
-        st.session_state.logo_size,
-        occupancy_percent_text,
-        year_totals,
-        vacant_total,
-        no_expiry_total
-    )
+        # Generate the plot using the function
+        fig = generate_stacking_plan_plot(
+            data,
+            st.session_state.building_name,
+            st.session_state.start_color,
+            st.session_state.end_color,
+            st.session_state.fig_width,
+            st.session_state.fig_height,
+            logo_file_to_display,
+            st.session_state.logo_x,
+            st.session_state.logo_y,
+            st.session_state.logo_size,
+            occupancy_percent_text,
+            year_totals,
+            vacant_total,
+            no_expiry_total
+        )
 
-    st.pyplot(fig)
+        st.pyplot(fig)
 
-    pdf_buf = BytesIO()
-    fig.savefig(pdf_buf, format="pdf", bbox_inches="tight")
-    pdf_buf.seek(0)
+        pdf_buf = BytesIO()
+        fig.savefig(pdf_buf, format="pdf", bbox_inches="tight")
+        pdf_buf.seek(0)
 
-    st.download_button(
-        label="Download Stacking Plan as PDF",
-        data=pdf_buf,
-        file_name=f"{st.session_state.building_name}_stacking_plan.pdf",
-        mime="application/pdf"
-    )
+        st.download_button(
+            label="Download Stacking Plan as PDF",
+            data=pdf_buf,
+            file_name=f"{st.session_state.building_name}_stacking_plan.pdf",
+            mime="application/pdf"
+        )
 
-    png_buf = BytesIO()
-    fig.savefig(png_buf, format="png", bbox_inches="tight")
-    png_buf.seek(0)
+        png_buf = BytesIO()
+        fig.savefig(png_buf, format="png", bbox_inches="tight")
+        png_buf.seek(0)
 
-    st.download_button(
-        label="Download Stacking Plan as PNG",
-        data=png_buf,
-        file_name=f"{st.session_state.building_name}_stacking_plan.png",
-        mime="application/png"
-    )
+        st.download_button(
+            label="Download Stacking Plan as PNG",
+            data=png_buf,
+            file_name=f"{st.session_state.building_name}_stacking_plan.png",
+            mime="application/png"
+        )
 
-    st.success("✅ Stacking plan generated!")
+        st.success("✅ Stacking plan generated!")
