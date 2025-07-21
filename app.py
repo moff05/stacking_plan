@@ -374,19 +374,41 @@ if excel_file_to_process is not None:
     # Add logo with percentage-based positioning
     if logo_file_to_display is not None:
         logo = Image.open(logo_file_to_display)
-        logo.thumbnail((int(st.session_state.logo_size), int(st.session_state.logo_size)))
         
-        # Calculate position based on percentage of figure size
+        # Resize logo to exact size instead of using thumbnail
+        logo_size_px = int(st.session_state.logo_size)
+        # Calculate aspect ratio to maintain proportions
+        aspect_ratio = logo.size[0] / logo.size[1]
+        if logo.size[0] > logo.size[1]:  # Wider than tall
+            new_width = logo_size_px
+            new_height = int(logo_size_px / aspect_ratio)
+        else:  # Taller than wide or square
+            new_height = logo_size_px
+            new_width = int(logo_size_px * aspect_ratio)
+        
+        logo = logo.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # Get the actual plot area boundaries in figure coordinates
+        bbox = ax.get_position()  # This gives us the axes position as fraction of figure
         fig_width_px = fig.get_figwidth() * fig.dpi
         fig_height_px = fig.get_figheight() * fig.dpi
         
-        # Convert percentage to pixel position
-        logo_x_px = int((st.session_state.logo_x_percent / 100) * fig_width_px - logo.size[0] / 2)
-        logo_y_px = int((st.session_state.logo_y_percent / 100) * fig_height_px - logo.size[1] / 2)
+        # Calculate the actual chart area in pixels
+        chart_left_px = bbox.x0 * fig_width_px
+        chart_right_px = bbox.x1 * fig_width_px
+        chart_bottom_px = bbox.y0 * fig_height_px
+        chart_top_px = bbox.y1 * fig_height_px
         
-        # Ensure logo stays within figure bounds
-        logo_x_px = max(0, min(logo_x_px, fig_width_px - logo.size[0]))
-        logo_y_px = max(0, min(logo_y_px, fig_height_px - logo.size[1]))
+        chart_width_px = chart_right_px - chart_left_px
+        chart_height_px = chart_top_px - chart_bottom_px
+        
+        # Convert percentage to pixel position within the chart area
+        logo_x_px = int(chart_left_px + (st.session_state.logo_x_percent / 100) * chart_width_px - logo.size[0] / 2)
+        logo_y_px = int(chart_bottom_px + (st.session_state.logo_y_percent / 100) * chart_height_px - logo.size[1] / 2)
+        
+        # Ensure logo stays within chart bounds
+        logo_x_px = max(int(chart_left_px), min(logo_x_px, int(chart_right_px - logo.size[0])))
+        logo_y_px = max(int(chart_bottom_px), min(logo_y_px, int(chart_top_px - logo.size[1])))
         
         fig.figimage(logo, xo=logo_x_px, yo=logo_y_px, alpha=1, zorder=10)
 
