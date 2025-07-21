@@ -20,8 +20,10 @@ DEFAULTS = {
     'logo_x': 50,
     'logo_y': 50,
     'logo_size': 150,
-    'uploaded_file_data': None, # Add this to store file content
-    'uploaded_file_name': None # Add this to store file name
+    'excel_file_content': None, # To store the binary content of the Excel file
+    'excel_file_name': None,   # To store the name of the Excel file
+    'logo_file_content': None, # To store the binary content of the logo
+    'logo_file_type': None     # To store the type of the logo
 }
 
 if 'reset_triggered' not in st.session_state:
@@ -87,21 +89,22 @@ with st.sidebar:
     )
 
     st.subheader("Logo")
-    # Handle logo file separately if it needs to persist
-    logo_file_uploader = st.file_uploader("Upload logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
+    # Logo upload widget
+    new_logo_file_uploader = st.file_uploader("Upload logo (PNG/JPG)", type=["png", "jpg", "jpeg"], key="logo_uploader")
 
-    # If a new logo is uploaded, store it
-    if logo_file_uploader is not None:
-        st.session_state['logo_file_data'] = logo_file_uploader.getvalue()
-        st.session_state['logo_file_type'] = logo_file_uploader.type
+    # If a new logo is uploaded, store its content in session state
+    if new_logo_file_uploader is not None:
+        st.session_state['logo_file_content'] = new_logo_file_uploader.getvalue()
+        st.session_state['logo_file_type'] = new_logo_file_uploader.type
     
-    # Use the stored logo data if available, otherwise None
-    logo_file = None
-    if 'logo_file_data' in st.session_state and st.session_state['logo_file_data'] is not None:
-        logo_file = BytesIO(st.session_state['logo_file_data'])
-        logo_file.name = "uploaded_logo." + st.session_state['logo_file_type'].split('/')[-1] # give it a name for PIL
+    # Use the logo content from session state if available, otherwise None
+    logo_file_to_display = None
+    if st.session_state.get('logo_file_content') is not None:
+        logo_file_to_display = BytesIO(st.session_state['logo_file_content'])
+        logo_file_to_display.name = "uploaded_logo." + st.session_state['logo_file_type'].split('/')[-1] # For PIL
 
-    if logo_file is not None:
+    # Display logo settings only if there's a logo in session state or a new one is uploaded
+    if logo_file_to_display is not None:
         logo_x = st.slider(
             "Logo X position (px from left)", 0, 2000,
             value=st.session_state.get('logo_x', DEFAULTS['logo_x']),
@@ -118,9 +121,8 @@ with st.sidebar:
             step=10, key="logo_size"
         )
     else:
-        logo_x = st.session_state.get('logo_x', DEFAULTS['logo_x'])
-        logo_y = st.session_state.get('logo_y', DEFAULTS['logo_y'])
-        logo_size = st.session_state.get('logo_size', DEFAULTS['logo_size'])
+        # Provide default values if no logo is present in session state
+        logo_x, logo_y, logo_size = DEFAULTS['logo_x'], DEFAULTS['logo_y'], DEFAULTS['logo_size']
 
 # -----------------------------------
 # Building name input
@@ -135,34 +137,39 @@ building_name = st.text_input(
 # File Upload & Processing
 # -----------------------------------
 
-# File uploader widget
-new_uploaded_file = st.file_uploader("Upload your Excel file here (.xlsx)")
+# Excel file uploader widget
+new_excel_file_uploader = st.file_uploader("Upload your Excel file here (.xlsx)", key="excel_uploader")
 
-# If a new file is uploaded, update session state
-if new_uploaded_file is not None:
-    st.session_state['uploaded_file_data'] = new_uploaded_file.getvalue()
-    st.session_state['uploaded_file_name'] = new_uploaded_file.name
+# If a new Excel file is uploaded, store its content in session state
+if new_excel_file_uploader is not None:
+    st.session_state['excel_file_content'] = new_excel_file_uploader.getvalue()
+    st.session_state['excel_file_name'] = new_excel_file_uploader.name
 
-# Use the file from session state, if available
-if st.session_state.get('uploaded_file_data') is not None:
-    # Recreate the BytesIO object from stored data
-    uploaded_file_content = BytesIO(st.session_state['uploaded_file_data'])
-    uploaded_file_content.name = st.session_state['uploaded_file_name'] # Important for pandas to read it
-    uploaded_file = uploaded_file_content
-else:
-    uploaded_file = None # No file, so no plot
+# Determine which file content to use for plotting:
+# 1. If there's content in session state, use that (for persisted files or after rerun).
+# 2. Otherwise, no file is available.
+excel_file_to_process = None
+if st.session_state.get('excel_file_content') is not None:
+    excel_file_to_process = BytesIO(st.session_state['excel_file_content'])
+    excel_file_to_process.name = st.session_state['excel_file_name'] # Important for pandas
 
 required_columns = ['Floor', 'Suite Number', 'Tenant Name', 'Square Footage', 'Expiration Date']
 
-if uploaded_file is not None:
+if excel_file_to_process is not None: # Use the determined file content for the plotting logic
     try:
-        data = pd.read_excel(uploaded_file)
+        data = pd.read_excel(excel_file_to_process)
         missing_cols = [col for col in required_columns if col not in data.columns]
         if missing_cols:
             st.error(f"❌ Uploaded file is missing required columns: {', '.join(missing_cols)}")
+            # Clear the session state file if it's invalid
+            st.session_state['excel_file_content'] = None
+            st.session_state['excel_file_name'] = None
             st.stop()
     except Exception as e:
         st.error(f"❌ Error reading Excel file: {e}")
+        # Clear the session state file if it's invalid
+        st.session_state['excel_file_content'] = None
+        st.session_state['excel_file_name'] = None
         st.stop()
 
     # Matplotlib style
@@ -237,8 +244,8 @@ if uploaded_file is not None:
     ax.tick_params(bottom=False)
     plt.tight_layout()
 
-    if logo_file is not None:
-        logo = Image.open(logo_file)
+    if logo_file_to_display is not None:
+        logo = Image.open(logo_file_to_display)
         logo.thumbnail((logo_size, logo_size))
         fig.figimage(logo, xo=logo_x, yo=logo_y, alpha=1, zorder=10)
 
@@ -262,3 +269,5 @@ if uploaded_file is not None:
     st.download_button("Download Stacking Plan as PNG", png_buf, file_name=f"{building_name}_stacking_plan.png", mime="application/png")
 
     st.success("✅ Stacking plan generated!")
+else:
+    st.info("⬆️ Please upload an Excel file to generate the stacking plan.")
