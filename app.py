@@ -41,17 +41,17 @@ for k, v in DEFAULTS.items():
 def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
     # Settings to reset (exclude file-related keys)
-    settings_to_reset = ['start_color', 'end_color', 'fig_width', 'fig_height', 
-                        'logo_x', 'logo_y', 'logo_size', 'building_name']
+    settings_to_reset = ['start_color', 'end_color', 'fig_width', 'fig_height',
+                         'logo_x', 'logo_y', 'logo_size', 'building_name']
     
     # Reset the actual session state values
     for setting in settings_to_reset:
         st.session_state[setting] = DEFAULTS[setting]
     
     # Also reset the widget keys to force UI update
-    widget_keys_to_reset = ['fig_width_slider', 'fig_height_slider', 'start_color_picker', 
-                           'end_color_picker', 'logo_x_slider', 'logo_y_slider', 
-                           'logo_size_slider', 'building_name_input']
+    widget_keys_to_reset = ['fig_width_slider', 'fig_height_slider', 'start_color_picker',
+                            'end_color_picker', 'logo_x_slider', 'logo_y_slider',
+                            'logo_size_slider', 'building_name_input']
     
     for key in widget_keys_to_reset:
         if key in st.session_state:
@@ -175,9 +175,6 @@ with st.sidebar:
             value=st.session_state.logo_size, step=10, key="logo_size_slider"
         )
         st.session_state.logo_size = logo_size
-    # else:
-    #     # If no logo is uploaded/persisted, these values will remain at their defaults from session_state initialization
-    #     pass
 
 # Building name input stays in main UI for better visibility
 building_name = st.text_input(
@@ -255,6 +252,15 @@ if excel_file_to_process is not None:
     no_expiry_total = data.loc[data['Expiration Year'].isna() & ~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
     vacant_total = data.loc[data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
 
+    # Calculate Total Occupied SF and Total Available SF
+    total_occupied_sf = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
+    total_available_sf = data['Square Footage'].sum() # Sum of all square footage in the building
+
+    occupancy_percentage = (total_occupied_sf / total_available_sf) * 100 if total_available_sf > 0 else 0
+
+    # Format the occupancy text
+    occupancy_percent_text = f"{occupancy_percentage:.1f}% ({int(total_occupied_sf):,} / {int(total_available_sf):,} SF)"
+
     occupancy_summary = []
     for year, total_sf in year_totals.items():
         occupancy_summary.append(f"{int(year)}: {int(total_sf):,} SF")
@@ -262,7 +268,7 @@ if excel_file_to_process is not None:
         occupancy_summary.append(f"No Expiry: {int(no_expiry_total):,} SF")
     if vacant_total > 0:
         occupancy_summary.append(f"VACANT: {int(vacant_total):,} SF")
-    occupancy_text = " | ".join(occupancy_summary)
+    # occupancy_text = " | ".join(occupancy_summary) # This is no longer used directly as part of ax.text
 
     fig, ax = plt.subplots(figsize=(st.session_state.fig_width, st.session_state.fig_height))
 
@@ -278,17 +284,20 @@ if excel_file_to_process is not None:
         x_pos = 0
 
         ax.text(-0.5, y_pos, f"Floor {floor}\n{floor_sum} SF",
-                        ha='right', va='center', fontsize=8, fontweight='bold')
+                                ha='right', va='center', fontsize=8, fontweight='bold')
 
         for i, row in floor_data.iterrows():
             suite_sf = row['Square Footage']
             tenant = row['Tenant Name']
             suite = row['Suite Number']
-            width = suite_sf / floor_sum * plot_width
+            
+            # Handle division by zero for floors with 0 SF total (though unlikely with valid data)
+            width = suite_sf / floor_sum * plot_width if floor_sum > 0 else 0
+            
             color = get_color(row)
 
             ax.barh(y=y_pos, width=width, height=height, left=x_pos,
-                            color=color, edgecolor='black')
+                                color=color, edgecolor='black')
 
             expiry = row['Expiration Date'].strftime('%Y-%m-%d') if pd.notna(row['Expiration Date']) else 'No Expiry'
 
@@ -297,8 +306,8 @@ if excel_file_to_process is not None:
             line2 = f"{suite_sf} SF | {expiry}"
             
             ax.text(x=x_pos + width/2, y=y_pos,
-                            s=f"{line1}\n{line2}",
-                            ha='center', va='center', fontsize=6)
+                                s=f"{line1}\n{line2}",
+                                ha='center', va='center', fontsize=6)
 
             x_pos += width
 
@@ -322,6 +331,16 @@ if excel_file_to_process is not None:
         logo.thumbnail((int(st.session_state.logo_size), int(st.session_state.logo_size)))
         fig.figimage(logo, xo=int(st.session_state.logo_x), yo=int(st.session_state.logo_y), alpha=1, zorder=10)
 
+    # --- Add Occupancy Percentage Text ---
+    # Position it relative to the axes for consistent placement above the legend
+    # bbox_to_anchor controls the position in axes coordinates (0,0 is bottom-left, 1,1 is top-right)
+    # The first value (0.5) centers it horizontally.
+    # The second value (-0.15) places it below the main plot area but above the legend.
+    # Adjust this value as needed based on your fig_height and desired spacing.
+    ax.text(0.5, -0.05, f"Occupancy: {occupancy_percent_text}",
+            transform=ax.transAxes, ha='center', va='top', fontsize=12, fontweight='bold')
+    # --- End Occupancy Percentage Text ---
+
     legend_elements = []
     # Add expiration years with their square footage in the legend labels
     for year in years:
@@ -342,9 +361,10 @@ if excel_file_to_process is not None:
     else:
         legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry'))
 
-    # Remove the separate square footage summary text since it's now in the legend
-    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.08),
-                            ncol=len(legend_elements), fontsize=12)
+    # Adjusted bbox_to_anchor for the legend to make space for the new text
+    # The y-coordinate might need slight tweaking depending on overall chart size and desired spacing.
+    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
+                                ncol=len(legend_elements), fontsize=12)
 
     st.pyplot(fig)
 
