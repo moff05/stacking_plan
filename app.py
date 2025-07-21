@@ -292,9 +292,13 @@ if excel_file_to_process is not None:
 
             expiry = row['Expiration Date'].strftime('%Y-%m-%d') if pd.notna(row['Expiration Date']) else 'No Expiry'
 
+            # Two-line format: Suite + Tenant (bold) | SF + Expiry
+            line1 = f"Suite {suite} | {tenant}"
+            line2 = f"{suite_sf} SF | {expiry}"
+            
             ax.text(x=x_pos + width/2, y=y_pos,
-                            s=f"{tenant}\nSuite {suite}\n{suite_sf} SF\n{expiry}",
-                            ha='center', va='center', fontsize=6)
+                            s=f"{line1}\n{line2}",
+                            ha='center', va='center', fontsize=6, weight='bold')
 
             x_pos += width
 
