@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 from io import BytesIO
+from PIL import Image
 
 st.title("Stacking Plan Generator")
 
@@ -27,7 +28,10 @@ building_name = st.text_input("🏢 Enter building name or address for this stac
 start_color = st.color_picker("🎨 Choose start color (earliest expiration year)", "#FF0000")
 end_color = st.color_picker("🎨 Choose end color (latest expiration year)", "#00FF00")
 
-# File upload
+# 🖼️ Logo upload
+logo_file = st.file_uploader("Upload a logo image (PNG or JPG) to include on the stacking plan", type=["png", "jpg", "jpeg"])
+
+# File upload for stacking data
 uploaded_file = st.file_uploader("Upload your Excel file here (.xlsx)")
 
 if uploaded_file is not None:
@@ -62,19 +66,12 @@ if uploaded_file is not None:
         return mcolors.to_hex(color)
 
     # -------------------------
-    # 🆕 Calculate occupancy totals
+    # Calculate occupancy totals
     # -------------------------
-
-    # Total SF per expiration year (excluding VACANT)
     year_totals = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT')].groupby('Expiration Year')['Square Footage'].sum()
-
-    # Total SF for No Expiry tenants
     no_expiry_total = data.loc[data['Expiration Year'].isna() & ~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
-
-    # Total SF for VACANT
     vacant_total = data.loc[data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
 
-    # Build display string
     occupancy_summary = []
 
     for year, total_sf in year_totals.items():
@@ -131,7 +128,7 @@ if uploaded_file is not None:
     ax.set_xlabel('Proportional Suite Width (normalized per floor)')
     ax.set_yticks([])
     ax.set_xticks([])
-    ax.set_title(f'Stacking Plan - {building_name}', fontsize=14, fontweight='bold')  # 🆕 Updated title
+    ax.set_title(f'Stacking Plan - {building_name}', fontsize=14, fontweight='bold')
     ax.invert_yaxis()
 
     for spine in ax.spines.values():
@@ -141,34 +138,32 @@ if uploaded_file is not None:
 
     plt.tight_layout()
 
+    # Add logo to figure if uploaded
+    if logo_file is not None:
+        logo = Image.open(logo_file)
+        fig.figimage(logo, xo=fig.bbox.xmax - 250, yo=fig.bbox.ymax - 150, alpha=1, zorder=10)  # adjust xo/yo as needed
+
     # Legend for colors at bottom
     legend_elements = []
 
-    # Add legend for each year
     for year in years:
         color = mcolors.to_hex(cmap(norm(year)))
         legend_elements.append(
             mpatches.Patch(facecolor=color, edgecolor='black', label=str(int(year)))
         )
 
-    # Add vacant color patch
     legend_elements.append(
         mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT')
     )
 
-    # Add no expiry color patch
     legend_elements.append(
         mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry Date')
     )
 
-    # -------------------------
-    # 🆕 Add occupancy summary text to chart
-    # -------------------------
     ax.text(0.5, -0.1, f"Total SF by Expiration Year: {occupancy_text}",
             transform=ax.transAxes,
             ha='center', va='top', fontsize=10, fontweight='bold')
 
-    # Adjust legend position slightly lower if needed
     ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.2),
               ncol=len(legend_elements), fontsize=8)
 
@@ -180,7 +175,6 @@ if uploaded_file is not None:
     fig.savefig(pdf_buf, format="pdf", bbox_inches="tight")
     pdf_buf.seek(0)
 
-    # Download button for PDF
     st.download_button(
         label="Download Stacking Plan as PDF",
         data=pdf_buf,
