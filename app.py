@@ -53,7 +53,7 @@ YEAR_COLOR_DEFAULTS = {
     3: "#00FF00",    # +3 = Green
     4: "#ADD8E6",    # +4 = Light Blue
     5: "#800080",    # +5 = Purple
-    6: "#000080",    # +6 = Dark Blue
+    6: "#0000FF",    # +6 = Dark Blue
     7: "#A52A2A",    # +7 = Brown
     8: "#808080"     # +8 or more = Gray
 }
