@@ -454,7 +454,7 @@ if excel_file_to_process is not None:
             ax.barh(y=y_pos, width=width, height=height, left=x_pos,
                             color=color, edgecolor='black')
 
-            expiry = row['Expiration Date'].strftime('%Y-%m-%d') if pd.notna(row['Expiration Date']) else 'No Expiry'
+            expiry = row['Expiration Date'].strftime('%m-%d-%Y') if pd.notna(row['Expiration Date']) else 'No Expiry'
 
             line1 = f"Suite {suite}"
             line2_text = f"{tenant}"
