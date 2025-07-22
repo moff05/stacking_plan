@@ -218,18 +218,6 @@ with st.sidebar:
     st.subheader("Year Colors & Text")
     st.write(f"**Base Year: {CURRENT_YEAR}**")
     
-    year_labels_full = {
-        0: f"Current ({CURRENT_YEAR})",
-        1: f"+1 Year ({CURRENT_YEAR + 1})",
-        2: f"+2 Years ({CURRENT_YEAR + 2})",
-        3: f"+3 Years ({CURRENT_YEAR + 3})",
-        4: f"+4 Years ({CURRENT_YEAR + 4})",
-        5: f"+5 Years ({CURRENT_YEAR + 5})",
-        6: f"+6 Years ({CURRENT_YEAR + 6})",
-        7: f"+7 Years ({CURRENT_YEAR + 7})",
-        8: f"+8+ Years ({CURRENT_YEAR + 8}+)"
-    }
-    
     # New simplified labels for the UI
     year_labels_simplified = {
         0: f"{CURRENT_YEAR}",
@@ -244,23 +232,31 @@ with st.sidebar:
     }
 
     for i in range(9):
-        st.markdown(f"**Box Color {year_labels_simplified[i]}**") # New header for box color
-        col1, col2 = st.columns([0.6, 0.4])
-        with col1:
+        # Create two columns for "Box Color" and "Text Color" headings
+        col_heading1, col_heading2 = st.columns([0.6, 0.4])
+        with col_heading1:
+            st.markdown(f"**Box Color {year_labels_simplified[i]}**")
+        with col_heading2:
+            st.markdown(f"**Text Color {year_labels_simplified[i]}**")
+        
+        # Create two columns for the actual widgets, directly below their headings
+        col_widget1, col_widget2 = st.columns([0.6, 0.4])
+        with col_widget1:
             color = st.color_picker(
-                f"Color for {year_labels_simplified[i]}", # Label inside picker
+                f"Color for {year_labels_simplified[i]}", # Label for internal use, hidden
                 value=st.session_state[f'year_{i}_color'],
                 key=f'year_{i}_color_picker',
-                label_visibility="collapsed" # Hide label of color picker itself
+                label_visibility="collapsed" # Hide the default Streamlit label
             )
             st.session_state[f'year_{i}_color'] = color
-        with col2:
+        with col_widget2:
             text_color = st.radio(
-                "Text Color", # Simplified label
+                f"Text Color for {year_labels_simplified[i]}", # Label for internal use, hidden
                 options=['black', 'white'],
                 index=0 if st.session_state[f'year_{i}_text_color'] == 'black' else 1,
                 key=f'year_{i}_text_color_toggle',
-                horizontal=True
+                horizontal=True,
+                label_visibility="collapsed" # Hide the default Streamlit label
             )
             st.session_state[f'year_{i}_text_color'] = text_color
 
@@ -268,43 +264,57 @@ with st.sidebar:
     # Special category colors with text color toggles
     st.subheader("Special Categories & Text")
     
-    st.markdown("**Box Color Vacant Units**")
-    col1, col2 = st.columns([0.6, 0.4])
-    with col1:
+    # Vacant Units
+    col_v_heading1, col_v_heading2 = st.columns([0.6, 0.4])
+    with col_v_heading1:
+        st.markdown("**Box Color Vacant Units**")
+    with col_v_heading2:
+        st.markdown("**Text Color Vacant Units**")
+    
+    col_v_widget1, col_v_widget2 = st.columns([0.6, 0.4])
+    with col_v_widget1:
         vacant_color = st.color_picker(
-            "Color for Vacant Units", # Label inside picker
+            "Color for Vacant Units", # Label for internal use, hidden
             value=st.session_state.vacant_color,
             key='vacant_color_picker',
             label_visibility="collapsed"
         )
         st.session_state.vacant_color = vacant_color
-    with col2:
+    with col_v_widget2:
         vacant_text_color = st.radio(
-            "Text Color", # Simplified label
+            "Text Color for Vacant", # Label for internal use, hidden
             options=['black', 'white'],
             index=0 if st.session_state.vacant_text_color == 'black' else 1,
             key='vacant_text_color_toggle',
-            horizontal=True
+            horizontal=True,
+            label_visibility="collapsed"
         )
         st.session_state.vacant_text_color = vacant_text_color
 
-    st.markdown("**Box Color No Expiry**")
-    col1, col2 = st.columns([0.6, 0.4])
-    with col1:
+    # No Expiry
+    col_ne_heading1, col_ne_heading2 = st.columns([0.6, 0.4])
+    with col_ne_heading1:
+        st.markdown("**Box Color No Expiry**")
+    with col_ne_heading2:
+        st.markdown("**Text Color No Expiry**")
+
+    col_ne_widget1, col_ne_widget2 = st.columns([0.6, 0.4])
+    with col_ne_widget1:
         no_expiry_color = st.color_picker(
-            "Color for No Expiry", # Label inside picker
+            "Color for No Expiry", # Label for internal use, hidden
             value=st.session_state.no_expiry_color,
             key='no_expiry_color_picker',
             label_visibility="collapsed"
         )
         st.session_state.no_expiry_color = no_expiry_color
-    with col2:
+    with col_ne_widget2:
         no_expiry_text_color = st.radio(
-            "Text Color", # Simplified label
+            "Text Color for No Expiry", # Label for internal use, hidden
             options=['black', 'white'],
             index=0 if st.session_state.no_expiry_text_color == 'black' else 1,
             key='no_expiry_text_color_toggle',
-            horizontal=True
+            horizontal=True,
+            label_visibility="collapsed"
         )
         st.session_state.no_expiry_text_color = no_expiry_text_color
 
