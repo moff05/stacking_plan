@@ -32,8 +32,8 @@ YEAR_COLOR_DEFAULTS = {
 DEFAULTS = {
     'fig_width': 16,
     'fig_height': 9,
-    'logo_x_percent': 98,
-    'logo_y_percent': 98,
+    'logo_offset_x_pixels': 20, # Default offset from right
+    'logo_offset_y_pixels': 20, # Default offset from bottom
     'logo_size': 200,
     'building_name': "My Building",
     'font_color': 'black',  # Default to black font
@@ -57,19 +57,19 @@ for k, v in DEFAULTS.items():
 def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
     # Settings to reset (exclude file-related keys)
-    settings_to_reset = (['fig_width', 'fig_height', 'logo_x_percent', 'logo_y_percent', 
-                        'logo_size', 'building_name', 'font_color', 'vacant_color', 'no_expiry_color'] + 
-                       [f'year_{i}_color' for i in range(9)])
+    settings_to_reset = (['fig_width', 'fig_height', 'logo_offset_x_pixels', 'logo_offset_y_pixels',
+                          'logo_size', 'building_name', 'font_color', 'vacant_color', 'no_expiry_color'] +
+                         [f'year_{i}_color' for i in range(9)])
 
     # Reset the actual session state values
     for setting in settings_to_reset:
         st.session_state[setting] = DEFAULTS[setting]
 
     # Also reset the widget keys to force UI update
-    widget_keys_to_reset = (['fig_width_slider', 'fig_height_slider', 'logo_x_slider', 
-                           'logo_y_slider', 'logo_size_slider', 'building_name_input', 
-                           'font_color_toggle', 'vacant_color_picker', 'no_expiry_color_picker'] + 
-                          [f'year_{i}_color_picker' for i in range(9)])
+    widget_keys_to_reset = (['fig_width_slider', 'fig_height_slider', 'logo_offset_x_slider',
+                             'logo_offset_y_slider', 'logo_size_slider', 'building_name_input',
+                             'font_color_toggle', 'vacant_color_picker', 'no_expiry_color_picker'] +
+                            [f'year_{i}_color_picker' for i in range(9)])
 
     for key in widget_keys_to_reset:
         if key in st.session_state:
@@ -87,10 +87,10 @@ def reset_settings():
                     st.session_state[key] = DEFAULTS['fig_width']
                 elif key == 'fig_height_slider':
                     st.session_state[key] = DEFAULTS['fig_height']
-                elif key == 'logo_x_slider':
-                    st.session_state[key] = DEFAULTS['logo_x_percent']
-                elif key == 'logo_y_slider':
-                    st.session_state[key] = DEFAULTS['logo_y_percent']
+                elif key == 'logo_offset_x_slider':
+                    st.session_state[key] = DEFAULTS['logo_offset_x_pixels']
+                elif key == 'logo_offset_y_slider':
+                    st.session_state[key] = DEFAULTS['logo_offset_y_pixels']
                 elif key == 'logo_size_slider':
                     st.session_state[key] = DEFAULTS['logo_size']
             elif key == 'building_name_input':
@@ -229,48 +229,21 @@ with st.sidebar:
     if logo_file_to_display is not None:
         st.write("**Logo Position & Size**")
 
-        # Position presets for easier adjustment
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("↖️ Top Left", use_container_width=True):
-                st.session_state.logo_x_percent = 2
-                st.session_state.logo_y_percent = 98
-                st.rerun()
-            if st.button("↙️ Bottom Left", use_container_width=True):
-                st.session_state.logo_x_percent = 2
-                st.session_state.logo_y_percent = 2
-                st.rerun()
+        st.write("**Fine-tune Position (from Bottom-Right):**")
 
-        with col2:
-            if st.button("↗️ Top Right", use_container_width=True):
-                st.session_state.logo_x_percent = 98
-                st.session_state.logo_y_percent = 98
-                st.rerun()
-            if st.button("↘️ Bottom Right", use_container_width=True):
-                st.session_state.logo_x_percent = 98
-                st.session_state.logo_y_percent = 2
-                st.rerun()
-
-        if st.button("🎯 Center", use_container_width=True):
-            st.session_state.logo_x_percent = 50
-            st.session_state.logo_y_percent = 50
-            st.rerun()
-
-        st.write("**Fine-tune Position:**")
-
-        logo_x_percent = st.slider(
-            "Horizontal position (%)", 0, 100,
-            value=st.session_state.logo_x_percent, step=1, key="logo_x_slider",
-            help="0% = far left, 100% = far right"
+        logo_offset_x_pixels = st.slider(
+            "Offset from Right (pixels)", -2000, 2000, # Increased range for "really far"
+            value=st.session_state.logo_offset_x_pixels, step=10, key="logo_offset_x_slider",
+            help="Positive values move left from the right edge, negative values move right."
         )
-        st.session_state.logo_x_percent = logo_x_percent
+        st.session_state.logo_offset_x_pixels = logo_offset_x_pixels
 
-        logo_y_percent = st.slider(
-            "Vertical position (%)", 0, 100,
-            value=st.session_state.logo_y_percent, step=1, key="logo_y_slider",
-            help="0% = bottom, 100% = top"
+        logo_offset_y_pixels = st.slider(
+            "Offset from Bottom (pixels)", -2000, 2000, # Increased range for "really far"
+            value=st.session_state.logo_offset_y_pixels, step=10, key="logo_offset_y_slider",
+            help="Positive values move up from the bottom edge, negative values move down."
         )
-        st.session_state.logo_y_percent = logo_y_percent
+        st.session_state.logo_offset_y_pixels = logo_offset_y_pixels
 
         logo_size = st.slider(
             "Logo max size (pixels)", 50, 800,
@@ -365,8 +338,8 @@ if excel_file_to_process is not None:
         x_pos = 0
 
         ax.text(-0.5, y_pos, f"Floor {floor}\n{floor_sum} SF",
-                ha='right', va='center', fontsize=8, fontweight='bold', 
-                color=st.session_state.font_color)
+                        ha='right', va='center', fontsize=8, fontweight='bold',
+                        color=st.session_state.font_color)
 
         for i, row in floor_data.iterrows():
             suite_sf = row['Square Footage']
@@ -377,7 +350,7 @@ if excel_file_to_process is not None:
             color = get_color(row)
 
             ax.barh(y=y_pos, width=width, height=height, left=x_pos,
-                    color=color, edgecolor='black')
+                            color=color, edgecolor='black')
 
             expiry = row['Expiration Date'].strftime('%Y-%m-%d') if pd.notna(row['Expiration Date']) else 'No Expiry'
 
@@ -386,16 +359,16 @@ if excel_file_to_process is not None:
             line3 = f"{suite_sf:,} SF | {expiry}"
 
             ax.text(x=x_pos + width/2, y=y_pos - 0.2,
-                    s=line1, ha='center', va='center', fontsize=6, 
-                    color=st.session_state.font_color)
+                            s=line1, ha='center', va='center', fontsize=6,
+                            color=st.session_state.font_color)
 
             ax.text(x=x_pos + width/2, y=y_pos,
-                    s=line2_text, ha='center', va='center', fontsize=6, 
-                    fontweight='bold', color=st.session_state.font_color)
+                            s=line2_text, ha='center', va='center', fontsize=6,
+                            fontweight='bold', color=st.session_state.font_color)
 
             ax.text(x=x_pos + width/2, y=y_pos + 0.2,
-                    s=line3, ha='center', va='center', fontsize=6,
-                    color=st.session_state.font_color)
+                            s=line3, ha='center', va='center', fontsize=6,
+                            color=st.session_state.font_color)
 
             x_pos += width
 
@@ -404,8 +377,8 @@ if excel_file_to_process is not None:
     ax.set_xlabel('Proportional Suite Width (normalized per floor)', color=st.session_state.font_color)
     ax.set_yticks([])
     ax.set_xticks([])
-    ax.set_title(f'Stacking Plan - {st.session_state.building_name}', fontsize=14, 
-                 fontweight='bold', color=st.session_state.font_color)
+    ax.set_title(f'Stacking Plan - {st.session_state.building_name}', fontsize=14,
+                  fontweight='bold', color=st.session_state.font_color)
     ax.invert_yaxis()
 
     for spine in ax.spines.values():
@@ -415,7 +388,7 @@ if excel_file_to_process is not None:
 
     plt.tight_layout()
 
-    # Add logo with corrected percentage-based positioning
+    # Add logo with corrected pixel-based positioning
     if logo_file_to_display is not None:
         logo = Image.open(logo_file_to_display)
 
@@ -434,29 +407,15 @@ if excel_file_to_process is not None:
         fig_width_px = fig.get_figwidth() * fig.dpi
         fig_height_px = fig.get_figheight() * fig.dpi
 
-        # Calculate logo position based on percentages
-        # X position (0% = left edge, 100% = right edge)
-        if st.session_state.logo_x_percent <= 5:
-            # Left edge
-            logo_x_px = 10  # Small margin from edge
-        elif st.session_state.logo_x_percent >= 95:
-            # Right edge
-            logo_x_px = fig_width_px - logo.size[0] - 10  # Small margin from edge
-        else:
-            # Percentage-based positioning
-            logo_x_px = (st.session_state.logo_x_percent / 100) * fig_width_px - logo.size[0] / 2
+        # Calculate logo position based on pixel offsets from bottom-right
+        # xo is distance from left edge of figure
+        # yo is distance from bottom edge of figure
 
-        # Y position (0% = bottom, 100% = top)
-        # Note: figimage uses bottom-left origin, so we need to flip Y
-        if st.session_state.logo_y_percent <= 5:
-            # Bottom edge
-            logo_y_px = 10  # Small margin from edge
-        elif st.session_state.logo_y_percent >= 95:
-            # Top edge
-            logo_y_px = fig_height_px - logo.size[1] - 10  # Small margin from edge
-        else:
-            # Percentage-based positioning
-            logo_y_px = (st.session_state.logo_y_percent / 100) * fig_height_px - logo.size[1] / 2
+        # Calculate x position: figure width - logo width - offset from right
+        logo_x_px = fig_width_px - logo.size[0] - st.session_state.logo_offset_x_pixels
+        
+        # Calculate y position: offset from bottom
+        logo_y_px = st.session_state.logo_offset_y_pixels
         
         # Ensure logo stays within figure bounds
         logo_x_px = max(0, min(logo_x_px, fig_width_px - logo.size[0]))
@@ -465,9 +424,10 @@ if excel_file_to_process is not None:
         # Add logo to figure
         fig.figimage(logo, xo=int(logo_x_px), yo=int(logo_y_px), alpha=1, zorder=10)
 
+
     # Add Occupancy Percentage Text
     ax.text(0.5, -0.05, f"Occupancy: {occupancy_percent_text}",
-            transform=ax.transAxes, ha='center', va='top', fontsize=12, 
+            transform=ax.transAxes, ha='center', va='top', fontsize=12,
             fontweight='bold', color=st.session_state.font_color)
 
     # Create legend with year-based colors
@@ -518,8 +478,8 @@ if excel_file_to_process is not None:
         legend_elements.append(mpatches.Patch(facecolor=st.session_state.no_expiry_color, edgecolor='black', label='No Expiry'))
 
     ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
-              ncol=len(legend_elements), fontsize=12, 
-              facecolor='none', edgecolor='none', 
+              ncol=len(legend_elements), fontsize=12,
+              facecolor='none', edgecolor='none',
               labelcolor=st.session_state.font_color)
 
     st.pyplot(fig)
