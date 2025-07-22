@@ -32,8 +32,10 @@ YEAR_COLOR_DEFAULTS = {
 DEFAULTS = {
     'fig_width': 16,
     'fig_height': 9,
-    'logo_offset_x_pixels': 20, # Default offset from right
-    'logo_offset_y_pixels': 20, # Default offset from bottom
+    'logo_anchor_x_percent': 98, # Default anchor is near right edge
+    'logo_anchor_y_percent': 2,  # Default anchor is near bottom edge
+    'logo_offset_x_inches': -0.1, # Offset from anchor in inches (negative means left for x, down for y)
+    'logo_offset_y_inches': 0.1,  # Offset from anchor in inches
     'logo_size': 200,
     'building_name': "My Building",
     'font_color': 'black',  # Default to black font
@@ -57,7 +59,8 @@ for k, v in DEFAULTS.items():
 def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
     # Settings to reset (exclude file-related keys)
-    settings_to_reset = (['fig_width', 'fig_height', 'logo_offset_x_pixels', 'logo_offset_y_pixels',
+    settings_to_reset = (['fig_width', 'fig_height', 'logo_anchor_x_percent', 'logo_anchor_y_percent',
+                          'logo_offset_x_inches', 'logo_offset_y_inches',
                           'logo_size', 'building_name', 'font_color', 'vacant_color', 'no_expiry_color'] +
                          [f'year_{i}_color' for i in range(9)])
 
@@ -66,8 +69,9 @@ def reset_settings():
         st.session_state[setting] = DEFAULTS[setting]
 
     # Also reset the widget keys to force UI update
-    widget_keys_to_reset = (['fig_width_slider', 'fig_height_slider', 'logo_offset_x_slider',
-                             'logo_offset_y_slider', 'logo_size_slider', 'building_name_input',
+    widget_keys_to_reset = (['fig_width_slider', 'fig_height_slider', 'logo_anchor_x_slider',
+                             'logo_anchor_y_slider', 'logo_offset_x_slider', 'logo_offset_y_slider',
+                             'logo_size_slider', 'building_name_input',
                              'font_color_toggle', 'vacant_color_picker', 'no_expiry_color_picker'] +
                             [f'year_{i}_color_picker' for i in range(9)])
 
@@ -87,10 +91,14 @@ def reset_settings():
                     st.session_state[key] = DEFAULTS['fig_width']
                 elif key == 'fig_height_slider':
                     st.session_state[key] = DEFAULTS['fig_height']
+                elif key == 'logo_anchor_x_slider':
+                    st.session_state[key] = DEFAULTS['logo_anchor_x_percent']
+                elif key == 'logo_anchor_y_slider':
+                    st.session_state[key] = DEFAULTS['logo_anchor_y_percent']
                 elif key == 'logo_offset_x_slider':
-                    st.session_state[key] = DEFAULTS['logo_offset_x_pixels']
+                    st.session_state[key] = DEFAULTS['logo_offset_x_inches']
                 elif key == 'logo_offset_y_slider':
-                    st.session_state[key] = DEFAULTS['logo_offset_y_pixels']
+                    st.session_state[key] = DEFAULTS['logo_offset_y_inches']
                 elif key == 'logo_size_slider':
                     st.session_state[key] = DEFAULTS['logo_size']
             elif key == 'building_name_input':
@@ -229,21 +237,35 @@ with st.sidebar:
     if logo_file_to_display is not None:
         st.write("**Logo Position & Size**")
 
-        st.write("**Fine-tune Position (from Bottom-Right):**")
-
-        logo_offset_x_pixels = st.slider(
-            "Offset from Right (pixels)", -2000, 2000, # Increased range for "really far"
-            value=st.session_state.logo_offset_x_pixels, step=10, key="logo_offset_x_slider",
-            help="Positive values move left from the right edge, negative values move right."
+        st.write("Anchor Point (Percentage of Figure):")
+        logo_anchor_x_percent = st.slider(
+            "Horizontal Anchor (%)", 0, 100,
+            value=st.session_state.logo_anchor_x_percent, step=1, key="logo_anchor_x_slider",
+            help="0% = far left, 100% = far right. This is the starting point for offsets."
         )
-        st.session_state.logo_offset_x_pixels = logo_offset_x_pixels
+        st.session_state.logo_anchor_x_percent = logo_anchor_x_percent
 
-        logo_offset_y_pixels = st.slider(
-            "Offset from Bottom (pixels)", -2000, 2000, # Increased range for "really far"
-            value=st.session_state.logo_offset_y_pixels, step=10, key="logo_offset_y_slider",
-            help="Positive values move up from the bottom edge, negative values move down."
+        logo_anchor_y_percent = st.slider(
+            "Vertical Anchor (%)", 0, 100,
+            value=st.session_state.logo_anchor_y_percent, step=1, key="logo_anchor_y_slider",
+            help="0% = bottom, 100% = top. This is the starting point for offsets."
         )
-        st.session_state.logo_offset_y_pixels = logo_offset_y_pixels
+        st.session_state.logo_anchor_y_percent = logo_anchor_y_percent
+
+        st.write("Fine-tune Offset (Inches):")
+        logo_offset_x_inches = st.slider(
+            "Offset X (inches)", -5.0, 5.0, # Increased range for more movement
+            value=st.session_state.logo_offset_x_inches, step=0.1, key="logo_offset_x_slider",
+            help="Positive moves right, negative moves left."
+        )
+        st.session_state.logo_offset_x_inches = logo_offset_x_inches
+
+        logo_offset_y_inches = st.slider(
+            "Offset Y (inches)", -5.0, 5.0, # Increased range for more movement
+            value=st.session_state.logo_offset_y_inches, step=0.1, key="logo_offset_y_slider",
+            help="Positive moves up, negative moves down."
+        )
+        st.session_state.logo_offset_y_inches = logo_offset_y_inches
 
         logo_size = st.slider(
             "Logo max size (pixels)", 50, 800,
@@ -388,7 +410,7 @@ if excel_file_to_process is not None:
 
     plt.tight_layout()
 
-    # Add logo with corrected pixel-based positioning
+    # Add logo with corrected percentage-based anchoring and inch offsets
     if logo_file_to_display is not None:
         logo = Image.open(logo_file_to_display)
 
@@ -403,21 +425,29 @@ if excel_file_to_process is not None:
 
         logo = logo.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-        # Get figure dimensions in pixels
+        # Calculate anchor point in pixels
+        anchor_x_px = (st.session_state.logo_anchor_x_percent / 100) * fig.get_figwidth() * fig.dpi
+        anchor_y_px = (st.session_state.logo_anchor_y_percent / 100) * fig.get_figheight() * fig.dpi
+
+        # Convert inch offsets to pixels
+        offset_x_px = st.session_state.logo_offset_x_inches * fig.dpi
+        offset_y_px = st.session_state.logo_offset_y_inches * fig.dpi
+
+        # Calculate final logo position (bottom-left corner of logo)
+        # We want the anchor point to be relative to the logo's center,
+        # but figimage uses the bottom-left corner of the image.
+        # Let's assume the anchor point is where the logo's center should be.
+        logo_center_x_px = anchor_x_px + offset_x_px
+        logo_center_y_px = anchor_y_px + offset_y_px
+
+        # Convert center to bottom-left for figimage
+        logo_x_px = logo_center_x_px - (logo.size[0] / 2)
+        logo_y_px = logo_center_y_px - (logo.size[1] / 2)
+
+        # Ensure logo stays within figure bounds
         fig_width_px = fig.get_figwidth() * fig.dpi
         fig_height_px = fig.get_figheight() * fig.dpi
-
-        # Calculate logo position based on pixel offsets from bottom-right
-        # xo is distance from left edge of figure
-        # yo is distance from bottom edge of figure
-
-        # Calculate x position: figure width - logo width - offset from right
-        logo_x_px = fig_width_px - logo.size[0] - st.session_state.logo_offset_x_pixels
         
-        # Calculate y position: offset from bottom
-        logo_y_px = st.session_state.logo_offset_y_pixels
-        
-        # Ensure logo stays within figure bounds
         logo_x_px = max(0, min(logo_x_px, fig_width_px - logo.size[0]))
         logo_y_px = max(0, min(logo_y_px, fig_height_px - logo.size[1]))
 
