@@ -9,7 +9,7 @@ from PIL import Image
 from datetime import datetime
 
 # -----------------------------------
-# Helper function to determine contrasting text color (no longer used for defaults, but kept if needed elsewhere)
+# Helper function to determine contrasting text color
 # -----------------------------------
 def get_contrasting_text_color(hex_color):
     """
@@ -71,10 +71,10 @@ DEFAULTS = {
     'logo_file_content': None,
     'logo_file_type': None,
     **{f'year_{i}_color': color for i, color in YEAR_COLOR_DEFAULTS.items()},
-    # Default all text colors to black
-    **{f'year_{i}_text_color': 'black' for i in range(9)},
-    'vacant_text_color': 'black',
-    'no_expiry_text_color': 'black',
+    # Initialize text colors based on contrast for toggles
+    **{f'year_{i}_text_color': get_contrasting_text_color(color) for i, color in YEAR_COLOR_DEFAULTS.items()},
+    'vacant_text_color': get_contrasting_text_color('#d3d3d3'),
+    'no_expiry_text_color': get_contrasting_text_color('#1f77b4'),
 }
 
 # Initialize ALL session state variables with their defaults if they don't exist
@@ -87,22 +87,34 @@ for k, v in DEFAULTS.items():
 # -----------------------------------
 def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
-    # Settings to reset (exclude file-related keys and hardcoded text colors)
+    # Settings to reset
     settings_to_reset = (['fig_width', 'fig_height', 'logo_size', 'building_name',
                           'vacant_color', 'no_expiry_color'] +
                          [f'year_{i}_color' for i in range(9)] +
-                         [f'year_{i}_text_color' for i in range(9)] + # Reset these to default black
-                         ['vacant_text_color', 'no_expiry_text_color']) # Reset these to default black
+                         [f'year_{i}_text_color' for i in range(9)] +
+                         ['vacant_text_color', 'no_expiry_text_color'])
 
     # Reset the actual session state values
     for setting in settings_to_reset:
-        st.session_state[setting] = DEFAULTS[setting]
+        if setting in DEFAULTS: # Ensure default exists for the setting
+            st.session_state[setting] = DEFAULTS[setting]
+        else: # Handle text colors that might not have a direct default in DEFAULTS
+            if 'year_' in setting and '_text_color' in setting:
+                year_num = int(setting.split('_')[1])
+                st.session_state[setting] = get_contrasting_text_color(YEAR_COLOR_DEFAULTS[year_num])
+            elif setting == 'vacant_text_color':
+                st.session_state[setting] = get_contrasting_text_color(DEFAULTS['vacant_color'])
+            elif setting == 'no_expiry_text_color':
+                st.session_state[setting] = get_contrasting_text_color(DEFAULTS['no_expiry_color'])
 
-    # Also reset the widget keys to force UI update (exclude removed toggles)
+
+    # Also reset the widget keys to force UI update
     widget_keys_to_reset = (['fig_width_slider', 'fig_height_slider', 'logo_size_slider',
                              'building_name_input', 'vacant_color_picker',
-                             'no_expiry_color_picker'] +
-                            [f'year_{i}_color_picker' for i in range(9)])
+                             'no_expiry_color_picker',
+                             'vacant_text_color_toggle', 'no_expiry_text_color_toggle'] +
+                            [f'year_{i}_color_picker' for i in range(9)] +
+                            [f'year_{i}_text_color_toggle' for i in range(9)])
 
     for key in widget_keys_to_reset:
         if key in st.session_state:
@@ -112,7 +124,6 @@ def reset_settings():
                 elif key == 'no_expiry_color_picker':
                     st.session_state[key] = DEFAULTS['no_expiry_color']
                 else:
-                    # Extract year number from key
                     year_num = int(key.split('_')[1])
                     st.session_state[key] = YEAR_COLOR_DEFAULTS[year_num]
             elif 'slider' in key:
@@ -124,7 +135,14 @@ def reset_settings():
                     st.session_state[key] = DEFAULTS['logo_size']
             elif key == 'building_name_input':
                 st.session_state[key] = DEFAULTS['building_name']
-            # No need to handle text_color_toggle keys as they are removed
+            elif 'text_color_toggle' in key:
+                if key == 'vacant_text_color_toggle':
+                    st.session_state[key] = get_contrasting_text_color(DEFAULTS['vacant_color'])
+                elif key == 'no_expiry_text_color_toggle':
+                    st.session_state[key] = get_contrasting_text_color(DEFAULTS['no_expiry_color'])
+                else: # For year_X_text_color_toggle
+                    year_num = int(key.split('_')[1])
+                    st.session_state[key] = get_contrasting_text_color(YEAR_COLOR_DEFAULTS[year_num])
 
     # Force a rerun to update the UI with reset values
     st.rerun()
@@ -132,14 +150,14 @@ def reset_settings():
 def get_year_offset_color(expiration_year):
     """Get color based on year offset from current year"""
     if pd.isna(expiration_year):
-        return st.session_state.no_expiry_color  # Use adjustable no expiry color
+        return st.session_state.no_expiry_color
     
     year_offset = int(expiration_year) - CURRENT_YEAR
     
     if year_offset < 0:
-        year_offset = 0  # Past years use current year color
+        year_offset = 0
     elif year_offset > 8:
-        year_offset = 8  # 8+ years use the 8+ color
+        year_offset = 8
     
     return st.session_state[f'year_{year_offset}_color']
 
@@ -201,8 +219,8 @@ with st.sidebar:
     )
     st.session_state.fig_height = fig_height
 
-    # Year-based color pickers (text color is now fixed to black)
-    st.subheader("Year Colors")
+    # Year-based color pickers with text color toggles
+    st.subheader("Year Colors & Text")
     st.write(f"**Base Year: {CURRENT_YEAR}**")
     
     year_labels = {
@@ -218,34 +236,67 @@ with st.sidebar:
     }
     
     for i in range(9):
-        color = st.color_picker(
-            year_labels[i],
-            value=st.session_state[f'year_{i}_color'],
-            key=f'year_{i}_color_picker'
-        )
-        st.session_state[f'year_{i}_color'] = color
-        # Text color is now fixed to black, no toggle needed
-        st.session_state[f'year_{i}_text_color'] = 'black'
+        col1, col2 = st.columns([0.6, 0.4])
+        with col1:
+            color = st.color_picker(
+                year_labels[i],
+                value=st.session_state[f'year_{i}_color'],
+                key=f'year_{i}_color_picker'
+            )
+            st.session_state[f'year_{i}_color'] = color
+        with col2:
+            # Re-add text color radio for each year
+            text_color = st.radio(
+                f"Text for {year_labels[i]}",
+                options=['black', 'white'],
+                index=0 if st.session_state[f'year_{i}_text_color'] == 'black' else 1,
+                key=f'year_{i}_text_color_toggle',
+                horizontal=True
+            )
+            st.session_state[f'year_{i}_text_color'] = text_color
 
 
-    # Special category colors (text color is now fixed to black)
-    st.subheader("Special Categories")
+    # Special category colors with text color toggles
+    st.subheader("Special Categories & Text")
     
-    vacant_color = st.color_picker(
-        "Vacant Units Background",
-        value=st.session_state.vacant_color,
-        key='vacant_color_picker'
-    )
-    st.session_state.vacant_color = vacant_color
-    st.session_state.vacant_text_color = 'black' # Fixed to black
+    col1, col2 = st.columns([0.6, 0.4])
+    with col1:
+        vacant_color = st.color_picker(
+            "Vacant Units Background",
+            value=st.session_state.vacant_color,
+            key='vacant_color_picker'
+        )
+        st.session_state.vacant_color = vacant_color
+    with col2:
+        # Re-add text color radio for vacant
+        vacant_text_color = st.radio(
+            "Vacant Text",
+            options=['black', 'white'],
+            index=0 if st.session_state.vacant_text_color == 'black' else 1,
+            key='vacant_text_color_toggle',
+            horizontal=True
+        )
+        st.session_state.vacant_text_color = vacant_text_color
 
-    no_expiry_color = st.color_picker(
-        "No Expiry Background",
-        value=st.session_state.no_expiry_color,
-        key='no_expiry_color_picker'
-    )
-    st.session_state.no_expiry_color = no_expiry_color
-    st.session_state.no_expiry_text_color = 'black' # Fixed to black
+    col1, col2 = st.columns([0.6, 0.4])
+    with col1:
+        no_expiry_color = st.color_picker(
+            "No Expiry Background",
+            value=st.session_state.no_expiry_color,
+            key='no_expiry_color_picker'
+        )
+        st.session_state.no_expiry_color = no_expiry_color
+    with col2:
+        # Re-add text color radio for no expiry
+        no_expiry_text_color = st.radio(
+            "No Expiry Text",
+            options=['black', 'white'],
+            index=0 if st.session_state.no_expiry_text_color == 'black' else 1,
+            key='no_expiry_text_color_toggle',
+            horizontal=True
+        )
+        st.session_state.no_expiry_text_color = no_expiry_text_color
+
 
     # Logo upload + controls
     st.subheader("Logo")
