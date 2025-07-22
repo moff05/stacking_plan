@@ -54,7 +54,7 @@ for k, v in DEFAULTS.items():
 # -----------------------------------
 def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
-    # Settings to reset (exclude file-related keys)
+    # Settings to reset (exclude file-related keys related to logo position)
     settings_to_reset = (['fig_width', 'fig_height', 'logo_size', 'building_name',
                           'font_color', 'vacant_color', 'no_expiry_color'] +
                          [f'year_{i}_color' for i in range(9)])
@@ -63,7 +63,7 @@ def reset_settings():
     for setting in settings_to_reset:
         st.session_state[setting] = DEFAULTS[setting]
 
-    # Also reset the widget keys to force UI update
+    # Also reset the widget keys to force UI update (exclude logo position sliders)
     widget_keys_to_reset = (['fig_width_slider', 'fig_height_slider', 'logo_size_slider',
                              'building_name_input', 'font_color_toggle',
                              'vacant_color_picker', 'no_expiry_color_picker'] +
@@ -364,9 +364,11 @@ if excel_file_to_process is not None:
 
     ax.tick_params(bottom=False)
 
-    plt.tight_layout()
+    # Adjust layout to make space for the legend on the right
+    plt.tight_layout(rect=[0, 0, 0.85, 1]) # Keep 15% of the right side for legend
 
-    # Add logo permanently in the top-left corner
+
+    # Add logo permanently in the bottom-left corner
     if logo_file_to_display is not None:
         logo = Image.open(logo_file_to_display)
 
@@ -381,13 +383,10 @@ if excel_file_to_process is not None:
 
         logo = logo.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-        # Fixed top-left position with a small pixel margin
+        # Fixed bottom-left position with a small pixel margin
         margin_px = 10 # Small margin from the edges
         logo_x_px = margin_px
-        
-        # Calculate y position from the top (remember figimage uses bottom-left origin)
-        fig_height_px = fig.get_figheight() * fig.dpi
-        logo_y_px = fig_height_px - logo.size[1] - margin_px
+        logo_y_px = margin_px
 
         # Add logo to figure
         fig.figimage(logo, xo=int(logo_x_px), yo=int(logo_y_px), alpha=1, zorder=10)
@@ -445,8 +444,9 @@ if excel_file_to_process is not None:
     else:
         legend_elements.append(mpatches.Patch(facecolor=st.session_state.no_expiry_color, edgecolor='black', label='No Expiry'))
 
-    ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
-              ncol=len(legend_elements), fontsize=12,
+    # Modified legend placement: to the right of the chart
+    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5), # (x, y) relative to axes. (1.02, 0.5) is just outside the right edge, centered vertically.
+              fontsize=12,
               facecolor='none', edgecolor='none',
               labelcolor=st.session_state.font_color)
 
