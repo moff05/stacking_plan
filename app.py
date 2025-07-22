@@ -218,7 +218,7 @@ with st.sidebar:
     st.subheader("Year Colors & Text")
     st.write(f"**Base Year: {CURRENT_YEAR}**")
     
-    year_labels = {
+    year_labels_full = {
         0: f"Current ({CURRENT_YEAR})",
         1: f"+1 Year ({CURRENT_YEAR + 1})",
         2: f"+2 Years ({CURRENT_YEAR + 2})",
@@ -230,12 +230,25 @@ with st.sidebar:
         8: f"+8+ Years ({CURRENT_YEAR + 8}+)"
     }
     
+    # New simplified labels for the UI
+    year_labels_simplified = {
+        0: f"{CURRENT_YEAR}",
+        1: f"{CURRENT_YEAR + 1}",
+        2: f"{CURRENT_YEAR + 2}",
+        3: f"{CURRENT_YEAR + 3}",
+        4: f"{CURRENT_YEAR + 4}",
+        5: f"{CURRENT_YEAR + 5}",
+        6: f"{CURRENT_YEAR + 6}",
+        7: f"{CURRENT_YEAR + 7}",
+        8: f"{CURRENT_YEAR + 8}+"
+    }
+
     for i in range(9):
-        st.markdown(f"**Box Color {year_labels[i]}**") # New header for box color
+        st.markdown(f"**Box Color {year_labels_simplified[i]}**") # New header for box color
         col1, col2 = st.columns([0.6, 0.4])
         with col1:
             color = st.color_picker(
-                f"Color for {year_labels[i]}", # Label inside picker
+                f"Color for {year_labels_simplified[i]}", # Label inside picker
                 value=st.session_state[f'year_{i}_color'],
                 key=f'year_{i}_color_picker',
                 label_visibility="collapsed" # Hide label of color picker itself
@@ -526,18 +539,8 @@ if excel_file_to_process is not None:
         color = st.session_state[f'year_{offset}_color']
         total_sf = sum(year_totals.get(year, 0) for year in years_in_group)
         
-        if offset == 0:
-            label = f"{CURRENT_YEAR}"
-        elif offset == 8:
-            # For 8+, make sure it truly represents 8 and greater years in the data
-            actual_years_8_plus = [y for y in years if y >= CURRENT_YEAR + 8]
-            if actual_years_8_plus:
-                 label = f"{CURRENT_YEAR + 8}+"
-            else:
-                 label = f"Years > {CURRENT_YEAR + 7}" # Fallback if no data beyond 7
-        else:
-            years_str = ", ".join(str(y) for y in years_in_group)
-            label = years_str
+        # Use simplified label for legend too
+        label = year_labels_simplified[offset]
         
         if total_sf > 0:
             label += f" ({int(total_sf):,} SF)"
