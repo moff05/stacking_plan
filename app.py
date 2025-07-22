@@ -53,7 +53,7 @@ YEAR_COLOR_DEFAULTS = {
     3: "#00FF00",    # +3 = Green
     4: "#ADD8E6",    # +4 = Light Blue
     5: "#800080",    # +5 = Purple
-    6: "#000080",    # +6 = Dark Blue
+    6: "#0000FF",    # +6 = Bright Blue (changed from #000080)
     7: "#A52A2A",    # +7 = Brown
     8: "#808080"     # +8 or more = Gray
 }
@@ -245,9 +245,9 @@ with st.sidebar:
             )
             st.session_state[f'year_{i}_color'] = color
         with col2:
-            # Re-add text color radio for each year
+            # Simplified label for text color radio
             text_color = st.radio(
-                f"Text for {year_labels[i]}",
+                "Text Color", # Simplified label
                 options=['black', 'white'],
                 index=0 if st.session_state[f'year_{i}_text_color'] == 'black' else 1,
                 key=f'year_{i}_text_color_toggle',
@@ -268,9 +268,9 @@ with st.sidebar:
         )
         st.session_state.vacant_color = vacant_color
     with col2:
-        # Re-add text color radio for vacant
+        # Simplified label for vacant text color
         vacant_text_color = st.radio(
-            "Vacant Text",
+            "Text Color", # Simplified label
             options=['black', 'white'],
             index=0 if st.session_state.vacant_text_color == 'black' else 1,
             key='vacant_text_color_toggle',
@@ -287,9 +287,9 @@ with st.sidebar:
         )
         st.session_state.no_expiry_color = no_expiry_color
     with col2:
-        # Re-add text color radio for no expiry
+        # Simplified label for no expiry text color
         no_expiry_text_color = st.radio(
-            "No Expiry Text",
+            "Text Color", # Simplified label
             options=['black', 'white'],
             index=0 if st.session_state.no_expiry_text_color == 'black' else 1,
             key='no_expiry_text_color_toggle',
