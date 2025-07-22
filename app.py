@@ -9,6 +9,37 @@ from PIL import Image
 from datetime import datetime
 
 # -----------------------------------
+# Helper function to determine contrasting text color
+# -----------------------------------
+def get_contrasting_text_color(hex_color):
+    """
+    Determines if 'black' or 'white' text is more readable on a given hex background color.
+    Uses the W3C luminance algorithm for perceived brightness.
+    """
+    if not isinstance(hex_color, str) or not hex_color.startswith('#'):
+        # Default for non-hex or invalid input
+        return 'black'
+
+    hex_color = hex_color.lstrip('#')
+    # Handle shorthand hex codes (e.g., #FFF)
+    if len(hex_color) == 3:
+        hex_color = ''.join([c*2 for c in hex_color])
+
+    try:
+        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    except ValueError:
+        # Fallback for invalid hex codes
+        return 'black'
+
+    # Calculate luminance (perceived brightness)
+    # Formula: L = 0.2126 * R + 0.7152 * G + 0.0722 * B (for sRGB)
+    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    
+    # Use a threshold to decide between black and white
+    # A common threshold is 0.5 for general use, but can be adjusted.
+    return 'black' if luminance > 0.5 else 'white'
+
+# -----------------------------------
 # Initialize session state for persistence of ALL changeable values
 # -----------------------------------
 
@@ -34,14 +65,20 @@ DEFAULTS = {
     'fig_height': 9,
     'logo_size': 200, # Still adjustable, but position fixed
     'building_name': "My Building",
-    'font_color': 'black',  # Default to black font
     'vacant_color': '#d3d3d3',  # Light gray for vacant
     'no_expiry_color': '#1f77b4',  # Blue for no expiry
+    'legend_text_color': 'black', # Default for legend text itself
     'excel_file_content': None,
     'excel_file_name': None,
     'logo_file_content': None,
     'logo_file_type': None,
-    **{f'year_{i}_color': color for i, color in YEAR_COLOR_DEFAULTS.items()}
+    **{f'year_{i}_color': color for i, color in YEAR_COLOR_DEFAULTS.items()},
+    # Initialize text colors for each background color based on contrast
+    **{f'year_{i}_text_color': get_contrasting_text_color(color) for i, color in YEAR_COLOR_DEFAULTS.items()},
+    'vacant_text_color': get_contrasting_text_color('#d3d3d3'),
+    'no_expiry_text_color': get_contrasting_text_color('#1f77b4'),
+    'floor_label_text_color': 'black', # For "Floor X" and SF label
+    'occupancy_text_color': 'black', # For the occupancy percentage text
 }
 
 # Initialize ALL session state variables with their defaults if they don't exist
@@ -56,8 +93,11 @@ def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
     # Settings to reset (exclude file-related keys related to logo position)
     settings_to_reset = (['fig_width', 'fig_height', 'logo_size', 'building_name',
-                          'font_color', 'vacant_color', 'no_expiry_color'] +
-                         [f'year_{i}_color' for i in range(9)])
+                          'vacant_color', 'no_expiry_color', 'legend_text_color',
+                          'floor_label_text_color', 'occupancy_text_color'] +
+                         [f'year_{i}_color' for i in range(9)] +
+                         [f'year_{i}_text_color' for i in range(9)] +
+                         ['vacant_text_color', 'no_expiry_text_color'])
 
     # Reset the actual session state values
     for setting in settings_to_reset:
@@ -65,9 +105,12 @@ def reset_settings():
 
     # Also reset the widget keys to force UI update (exclude logo position sliders)
     widget_keys_to_reset = (['fig_width_slider', 'fig_height_slider', 'logo_size_slider',
-                             'building_name_input', 'font_color_toggle',
-                             'vacant_color_picker', 'no_expiry_color_picker'] +
-                            [f'year_{i}_color_picker' for i in range(9)])
+                             'building_name_input', 'vacant_color_picker',
+                             'no_expiry_color_picker', 'legend_text_color_toggle',
+                             'floor_label_text_color_toggle', 'occupancy_text_color_toggle'] +
+                            [f'year_{i}_color_picker' for i in range(9)] +
+                            [f'year_{i}_text_color_toggle' for i in range(9)] +
+                            ['vacant_text_color_toggle', 'no_expiry_text_color_toggle'])
 
     for key in widget_keys_to_reset:
         if key in st.session_state:
@@ -89,8 +132,21 @@ def reset_settings():
                     st.session_state[key] = DEFAULTS['logo_size']
             elif key == 'building_name_input':
                 st.session_state[key] = DEFAULTS['building_name']
-            elif key == 'font_color_toggle':
-                st.session_state[key] = DEFAULTS['font_color']
+            elif 'text_color_toggle' in key:
+                if key == 'vacant_text_color_toggle':
+                    st.session_state[key] = DEFAULTS['vacant_text_color']
+                elif key == 'no_expiry_text_color_toggle':
+                    st.session_state[key] = DEFAULTS['no_expiry_text_color']
+                elif key == 'legend_text_color_toggle':
+                    st.session_state[key] = DEFAULTS['legend_text_color']
+                elif key == 'floor_label_text_color_toggle':
+                    st.session_state[key] = DEFAULTS['floor_label_text_color']
+                elif key == 'occupancy_text_color_toggle':
+                    st.session_state[key] = DEFAULTS['occupancy_text_color']
+                else: # For year_X_text_color_toggle
+                    year_num = int(key.split('_')[1])
+                    st.session_state[key] = get_contrasting_text_color(YEAR_COLOR_DEFAULTS[year_num])
+
 
     # Force a rerun to update the UI with reset values
     st.rerun()
@@ -108,6 +164,21 @@ def get_year_offset_color(expiration_year):
         year_offset = 8  # 8+ years use the 8+ color
     
     return st.session_state[f'year_{year_offset}_color']
+
+def get_year_offset_text_color(expiration_year):
+    """Get text color based on year offset from current year's background color"""
+    if pd.isna(expiration_year):
+        return st.session_state.no_expiry_text_color
+    
+    year_offset = int(expiration_year) - CURRENT_YEAR
+    
+    if year_offset < 0:
+        year_offset = 0
+    elif year_offset > 8:
+        year_offset = 8
+    
+    return st.session_state[f'year_{year_offset}_text_color']
+
 
 # -----------------------------------
 # UI Start
@@ -152,8 +223,8 @@ with st.sidebar:
     )
     st.session_state.fig_height = fig_height
 
-    # Year-based color pickers
-    st.subheader("Year Colors")
+    # Year-based color pickers with text color toggles
+    st.subheader("Year Colors & Text")
     st.write(f"**Base Year: {CURRENT_YEAR}**")
     
     year_labels = {
@@ -169,39 +240,97 @@ with st.sidebar:
     }
     
     for i in range(9):
-        color = st.color_picker(
-            year_labels[i],
-            value=st.session_state[f'year_{i}_color'],
-            key=f'year_{i}_color_picker'
-        )
-        st.session_state[f'year_{i}_color'] = color
+        col1, col2 = st.columns([0.6, 0.4])
+        with col1:
+            color = st.color_picker(
+                year_labels[i],
+                value=st.session_state[f'year_{i}_color'],
+                key=f'year_{i}_color_picker'
+            )
+            # Update background color in session state
+            st.session_state[f'year_{i}_color'] = color
+        with col2:
+            # Auto-suggest text color based on new background color
+            default_text_color = get_contrasting_text_color(color)
+            text_color = st.radio(
+                f"Text for {year_labels[i]}",
+                options=['black', 'white'],
+                index=0 if st.session_state[f'year_{i}_text_color'] == 'black' else 1,
+                key=f'year_{i}_text_color_toggle',
+                horizontal=True
+            )
+            st.session_state[f'year_{i}_text_color'] = text_color
 
-    # Special category colors
-    st.subheader("Special Categories")
+
+    # Special category colors with text color toggles
+    st.subheader("Special Categories & Text")
     
-    vacant_color = st.color_picker(
-        "Vacant Units",
-        value=st.session_state.vacant_color,
-        key='vacant_color_picker'
-    )
-    st.session_state.vacant_color = vacant_color
+    col1, col2 = st.columns([0.6, 0.4])
+    with col1:
+        vacant_color = st.color_picker(
+            "Vacant Units Background",
+            value=st.session_state.vacant_color,
+            key='vacant_color_picker'
+        )
+        st.session_state.vacant_color = vacant_color
+    with col2:
+        default_text_color = get_contrasting_text_color(vacant_color)
+        vacant_text_color = st.radio(
+            "Vacant Text",
+            options=['black', 'white'],
+            index=0 if st.session_state.vacant_text_color == 'black' else 1,
+            key='vacant_text_color_toggle',
+            horizontal=True
+        )
+        st.session_state.vacant_text_color = vacant_text_color
 
-    no_expiry_color = st.color_picker(
-        "No Expiry Date",
-        value=st.session_state.no_expiry_color,
-        key='no_expiry_color_picker'
-    )
-    st.session_state.no_expiry_color = no_expiry_color
+    col1, col2 = st.columns([0.6, 0.4])
+    with col1:
+        no_expiry_color = st.color_picker(
+            "No Expiry Background",
+            value=st.session_state.no_expiry_color,
+            key='no_expiry_color_picker'
+        )
+        st.session_state.no_expiry_color = no_expiry_color
+    with col2:
+        default_text_color = get_contrasting_text_color(no_expiry_color)
+        no_expiry_text_color = st.radio(
+            "No Expiry Text",
+            options=['black', 'white'],
+            index=0 if st.session_state.no_expiry_text_color == 'black' else 1,
+            key='no_expiry_text_color_toggle',
+            horizontal=True
+        )
+        st.session_state.no_expiry_text_color = no_expiry_text_color
 
-    # Font color toggle
-    st.subheader("Text Settings")
-    font_color = st.selectbox(
-        "Font Color",
+    # Global text color for Floor labels, Title, and Occupancy text
+    st.subheader("General Text Colors")
+    
+    floor_label_text_color = st.selectbox(
+        "Floor Labels & SF Color",
         options=['black', 'white'],
-        index=0 if st.session_state.font_color == 'black' else 1,
-        key='font_color_toggle'
+        index=0 if st.session_state.floor_label_text_color == 'black' else 1,
+        key='floor_label_text_color_toggle'
     )
-    st.session_state.font_color = font_color
+    st.session_state.floor_label_text_color = floor_label_text_color
+
+    occupancy_text_color = st.selectbox(
+        "Occupancy Percentage Color",
+        options=['black', 'white'],
+        index=0 if st.session_state.occupancy_text_color == 'black' else 1,
+        key='occupancy_text_color_toggle'
+    )
+    st.session_state.occupancy_text_color = occupancy_text_color
+
+    # Legend text color (for the legend labels themselves, not inside patches)
+    legend_text_color = st.selectbox(
+        "Legend Text Color",
+        options=['black', 'white'],
+        index=0 if st.session_state.legend_text_color == 'black' else 1,
+        key='legend_text_color_toggle'
+    )
+    st.session_state.legend_text_color = legend_text_color
+
 
     # Logo upload + controls
     st.subheader("Logo")
@@ -288,8 +417,15 @@ if excel_file_to_process is not None:
     def get_color(row):
         tenant_upper = str(row['Tenant Name']).upper()
         if 'VACANT' in tenant_upper:
-            return st.session_state.vacant_color  # Use adjustable vacant color
+            return st.session_state.vacant_color
         return get_year_offset_color(row['Expiration Year'])
+
+    def get_text_color_for_unit(row):
+        tenant_upper = str(row['Tenant Name']).upper()
+        if 'VACANT' in tenant_upper:
+            return st.session_state.vacant_text_color
+        return get_year_offset_text_color(row['Expiration Year'])
+
 
     year_totals = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT')].groupby('Expiration Year')['Square Footage'].sum()
     no_expiry_total = data.loc[data['Expiration Year'].isna() & ~data['Tenant Name'].str.upper().str.contains('VACANT'), 'Square Footage'].sum()
@@ -317,7 +453,7 @@ if excel_file_to_process is not None:
 
         ax.text(-0.5, y_pos, f"Floor {floor}\n{floor_sum} SF",
                         ha='right', va='center', fontsize=8, fontweight='bold',
-                        color=st.session_state.font_color)
+                        color=st.session_state.floor_label_text_color) # Apply floor label text color
 
         for i, row in floor_data.iterrows():
             suite_sf = row['Square Footage']
@@ -326,6 +462,7 @@ if excel_file_to_process is not None:
 
             width = suite_sf / floor_sum * plot_width if floor_sum > 0 else 0
             color = get_color(row)
+            text_color = get_text_color_for_unit(row) # Get specific text color for this unit
 
             ax.barh(y=y_pos, width=width, height=height, left=x_pos,
                             color=color, edgecolor='black')
@@ -338,25 +475,25 @@ if excel_file_to_process is not None:
 
             ax.text(x=x_pos + width/2, y=y_pos - 0.2,
                             s=line1, ha='center', va='center', fontsize=6,
-                            color=st.session_state.font_color)
+                            color=text_color) # Apply text color here
 
             ax.text(x=x_pos + width/2, y=y_pos,
                             s=line2_text, ha='center', va='center', fontsize=6,
-                            fontweight='bold', color=st.session_state.font_color)
+                            fontweight='bold', color=text_color) # Apply text color here
 
             ax.text(x=x_pos + width/2, y=y_pos + 0.2,
                             s=line3, ha='center', va='center', fontsize=6,
-                            color=st.session_state.font_color)
+                            color=text_color) # Apply text color here
 
             x_pos += width
 
         y_pos += height
 
-    ax.set_xlabel('Proportional Suite Width (normalized per floor)', color=st.session_state.font_color)
+    ax.set_xlabel('Proportional Suite Width (normalized per floor)', color=st.session_state.floor_label_text_color) # Apply to x-label
     ax.set_yticks([])
     ax.set_xticks([])
     ax.set_title(f'Stacking Plan - {st.session_state.building_name}', fontsize=14,
-                  fontweight='bold', color=st.session_state.font_color)
+                  fontweight='bold', color=st.session_state.floor_label_text_color) # Apply to title
     ax.invert_yaxis()
 
     for spine in ax.spines.values():
@@ -365,7 +502,9 @@ if excel_file_to_process is not None:
     ax.tick_params(bottom=False)
 
     # Adjust layout to make space for the legend on the right
-    plt.tight_layout(rect=[0, 0, 0.85, 1]) # Keep 15% of the right side for legend
+    # Rect argument: [left, bottom, right, top] in figure coordinates (0-1)
+    # 0.82 means the main plot area goes from 0 to 82% of the figure width, leaving 18% for the legend.
+    plt.tight_layout(rect=[0, 0, 0.82, 1])
 
 
     # Add logo permanently in the bottom-left corner
@@ -395,7 +534,7 @@ if excel_file_to_process is not None:
     # Add Occupancy Percentage Text
     ax.text(0.5, -0.05, f"Occupancy: {occupancy_percent_text}",
             transform=ax.transAxes, ha='center', va='top', fontsize=12,
-            fontweight='bold', color=st.session_state.font_color)
+            fontweight='bold', color=st.session_state.occupancy_text_color) # Apply occupancy text color
 
     # Create legend with year-based colors
     legend_elements = []
@@ -422,8 +561,12 @@ if excel_file_to_process is not None:
         if offset == 0:
             label = f"{CURRENT_YEAR}"
         elif offset == 8:
-            years_str = ", ".join(str(y) for y in years_in_group)
-            label = f"{years_str}+"
+            # For 8+, make sure it truly represents 8 and greater years in the data
+            actual_years_8_plus = [y for y in years if y >= CURRENT_YEAR + 8]
+            if actual_years_8_plus:
+                 label = f"{CURRENT_YEAR + 8}+"
+            else:
+                 label = f"Years > {CURRENT_YEAR + 7}" # Fallback if no data beyond 7
         else:
             years_str = ", ".join(str(y) for y in years_in_group)
             label = years_str
@@ -446,9 +589,9 @@ if excel_file_to_process is not None:
 
     # Modified legend placement: to the right of the chart
     ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5), # (x, y) relative to axes. (1.02, 0.5) is just outside the right edge, centered vertically.
-              fontsize=12,
+              fontsize=10, # Adjusted font size for side legend
               facecolor='none', edgecolor='none',
-              labelcolor=st.session_state.font_color)
+              labelcolor=st.session_state.legend_text_color) # Apply global legend text color
 
     st.pyplot(fig)
 
