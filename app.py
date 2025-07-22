@@ -37,6 +37,8 @@ DEFAULTS = {
     'logo_size': 200,
     'building_name': "My Building",
     'font_color': 'black',  # Default to black font
+    'vacant_color': '#d3d3d3',  # Light gray for vacant
+    'no_expiry_color': '#1f77b4',  # Blue for no expiry
     'excel_file_content': None,
     'excel_file_name': None,
     'logo_file_content': None,
@@ -55,8 +57,9 @@ for k, v in DEFAULTS.items():
 def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
     # Settings to reset (exclude file-related keys)
-    settings_to_reset = ['fig_width', 'fig_height', 'logo_x_percent', 'logo_y_percent', 
-                        'logo_size', 'building_name', 'font_color'] + [f'year_{i}_color' for i in range(9)]
+    settings_to_reset = (['fig_width', 'fig_height', 'logo_x_percent', 'logo_y_percent', 
+                        'logo_size', 'building_name', 'font_color', 'vacant_color', 'no_expiry_color'] + 
+                       [f'year_{i}_color' for i in range(9)])
 
     # Reset the actual session state values
     for setting in settings_to_reset:
@@ -64,15 +67,21 @@ def reset_settings():
 
     # Also reset the widget keys to force UI update
     widget_keys_to_reset = (['fig_width_slider', 'fig_height_slider', 'logo_x_slider', 
-                           'logo_y_slider', 'logo_size_slider', 'building_name_input', 'font_color_toggle'] + 
+                           'logo_y_slider', 'logo_size_slider', 'building_name_input', 
+                           'font_color_toggle', 'vacant_color_picker', 'no_expiry_color_picker'] + 
                           [f'year_{i}_color_picker' for i in range(9)])
 
     for key in widget_keys_to_reset:
         if key in st.session_state:
             if 'color_picker' in key:
-                # Extract year number from key
-                year_num = int(key.split('_')[1])
-                st.session_state[key] = YEAR_COLOR_DEFAULTS[year_num]
+                if key == 'vacant_color_picker':
+                    st.session_state[key] = DEFAULTS['vacant_color']
+                elif key == 'no_expiry_color_picker':
+                    st.session_state[key] = DEFAULTS['no_expiry_color']
+                else:
+                    # Extract year number from key
+                    year_num = int(key.split('_')[1])
+                    st.session_state[key] = YEAR_COLOR_DEFAULTS[year_num]
             elif 'slider' in key:
                 if key == 'fig_width_slider':
                     st.session_state[key] = DEFAULTS['fig_width']
@@ -95,7 +104,7 @@ def reset_settings():
 def get_year_offset_color(expiration_year):
     """Get color based on year offset from current year"""
     if pd.isna(expiration_year):
-        return '#1f77b4'  # No expiry color (blue)
+        return st.session_state.no_expiry_color  # Use adjustable no expiry color
     
     year_offset = int(expiration_year) - CURRENT_YEAR
     
@@ -172,6 +181,23 @@ with st.sidebar:
             key=f'year_{i}_color_picker'
         )
         st.session_state[f'year_{i}_color'] = color
+
+    # Special category colors
+    st.subheader("Special Categories")
+    
+    vacant_color = st.color_picker(
+        "Vacant Units",
+        value=st.session_state.vacant_color,
+        key='vacant_color_picker'
+    )
+    st.session_state.vacant_color = vacant_color
+
+    no_expiry_color = st.color_picker(
+        "No Expiry Date",
+        value=st.session_state.no_expiry_color,
+        key='no_expiry_color_picker'
+    )
+    st.session_state.no_expiry_color = no_expiry_color
 
     # Font color toggle
     st.subheader("Text Settings")
@@ -311,7 +337,7 @@ if excel_file_to_process is not None:
     def get_color(row):
         tenant_upper = str(row['Tenant Name']).upper()
         if 'VACANT' in tenant_upper:
-            return '#d3d3d3'
+            return st.session_state.vacant_color  # Use adjustable vacant color
         return get_year_offset_color(row['Expiration Year'])
 
     year_totals = data.loc[~data['Tenant Name'].str.upper().str.contains('VACANT')].groupby('Expiration Year')['Square Footage'].sum()
@@ -475,16 +501,16 @@ if excel_file_to_process is not None:
         
         legend_elements.append(mpatches.Patch(facecolor=color, edgecolor='black', label=label))
 
-    # Add VACANT and No Expiry
+    # Add VACANT and No Expiry with adjustable colors
     if vacant_total > 0:
-        legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label=f'VACANT ({int(vacant_total):,} SF)'))
+        legend_elements.append(mpatches.Patch(facecolor=st.session_state.vacant_color, edgecolor='black', label=f'VACANT ({int(vacant_total):,} SF)'))
     else:
-        legend_elements.append(mpatches.Patch(facecolor='#d3d3d3', edgecolor='black', label='VACANT'))
+        legend_elements.append(mpatches.Patch(facecolor=st.session_state.vacant_color, edgecolor='black', label='VACANT'))
 
     if no_expiry_total > 0:
-        legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label=f'No Expiry ({int(no_expiry_total):,} SF)'))
+        legend_elements.append(mpatches.Patch(facecolor=st.session_state.no_expiry_color, edgecolor='black', label=f'No Expiry ({int(no_expiry_total):,} SF)'))
     else:
-        legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry'))
+        legend_elements.append(mpatches.Patch(facecolor=st.session_state.no_expiry_color, edgecolor='black', label='No Expiry'))
 
     ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
               ncol=len(legend_elements), fontsize=12, 
