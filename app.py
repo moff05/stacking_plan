@@ -30,8 +30,8 @@ YEAR_COLOR_DEFAULTS = {
 
 # Define initial default values for settings
 DEFAULTS = {
-    'fig_width': 25,
-    'fig_height': 14,
+    'fig_width': 16,
+    'fig_height': 9,
     'logo_x_percent': 98,
     'logo_y_percent': 98,
     'logo_size': 200,
