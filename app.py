@@ -9,7 +9,7 @@ from PIL import Image
 from datetime import datetime
 
 # -----------------------------------
-# Helper function to determine contrasting text color
+# Helper function to determine contrasting text color (no longer used for defaults, but kept if needed elsewhere)
 # -----------------------------------
 def get_contrasting_text_color(hex_color):
     """
@@ -36,7 +36,6 @@ def get_contrasting_text_color(hex_color):
     luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
     
     # Use a threshold to decide between black and white
-    # A common threshold is 0.5 for general use, but can be adjusted.
     return 'black' if luminance > 0.5 else 'white'
 
 # -----------------------------------
@@ -67,18 +66,15 @@ DEFAULTS = {
     'building_name': "My Building",
     'vacant_color': '#d3d3d3',  # Light gray for vacant
     'no_expiry_color': '#1f77b4',  # Blue for no expiry
-    'legend_text_color': 'black', # Default for legend text itself
     'excel_file_content': None,
     'excel_file_name': None,
     'logo_file_content': None,
     'logo_file_type': None,
     **{f'year_{i}_color': color for i, color in YEAR_COLOR_DEFAULTS.items()},
-    # Initialize text colors for each background color based on contrast
-    **{f'year_{i}_text_color': get_contrasting_text_color(color) for i, color in YEAR_COLOR_DEFAULTS.items()},
-    'vacant_text_color': get_contrasting_text_color('#d3d3d3'),
-    'no_expiry_text_color': get_contrasting_text_color('#1f77b4'),
-    'floor_label_text_color': 'black', # For "Floor X" and SF label
-    'occupancy_text_color': 'black', # For the occupancy percentage text
+    # Default all text colors to black
+    **{f'year_{i}_text_color': 'black' for i in range(9)},
+    'vacant_text_color': 'black',
+    'no_expiry_text_color': 'black',
 }
 
 # Initialize ALL session state variables with their defaults if they don't exist
@@ -91,26 +87,22 @@ for k, v in DEFAULTS.items():
 # -----------------------------------
 def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
-    # Settings to reset (exclude file-related keys related to logo position)
+    # Settings to reset (exclude file-related keys and hardcoded text colors)
     settings_to_reset = (['fig_width', 'fig_height', 'logo_size', 'building_name',
-                          'vacant_color', 'no_expiry_color', 'legend_text_color',
-                          'floor_label_text_color', 'occupancy_text_color'] +
+                          'vacant_color', 'no_expiry_color'] +
                          [f'year_{i}_color' for i in range(9)] +
-                         [f'year_{i}_text_color' for i in range(9)] +
-                         ['vacant_text_color', 'no_expiry_text_color'])
+                         [f'year_{i}_text_color' for i in range(9)] + # Reset these to default black
+                         ['vacant_text_color', 'no_expiry_text_color']) # Reset these to default black
 
     # Reset the actual session state values
     for setting in settings_to_reset:
         st.session_state[setting] = DEFAULTS[setting]
 
-    # Also reset the widget keys to force UI update (exclude logo position sliders)
+    # Also reset the widget keys to force UI update (exclude removed toggles)
     widget_keys_to_reset = (['fig_width_slider', 'fig_height_slider', 'logo_size_slider',
                              'building_name_input', 'vacant_color_picker',
-                             'no_expiry_color_picker', 'legend_text_color_toggle',
-                             'floor_label_text_color_toggle', 'occupancy_text_color_toggle'] +
-                            [f'year_{i}_color_picker' for i in range(9)] +
-                            [f'year_{i}_text_color_toggle' for i in range(9)] +
-                            ['vacant_text_color_toggle', 'no_expiry_text_color_toggle'])
+                             'no_expiry_color_picker'] +
+                            [f'year_{i}_color_picker' for i in range(9)])
 
     for key in widget_keys_to_reset:
         if key in st.session_state:
@@ -132,21 +124,7 @@ def reset_settings():
                     st.session_state[key] = DEFAULTS['logo_size']
             elif key == 'building_name_input':
                 st.session_state[key] = DEFAULTS['building_name']
-            elif 'text_color_toggle' in key:
-                if key == 'vacant_text_color_toggle':
-                    st.session_state[key] = DEFAULTS['vacant_text_color']
-                elif key == 'no_expiry_text_color_toggle':
-                    st.session_state[key] = DEFAULTS['no_expiry_text_color']
-                elif key == 'legend_text_color_toggle':
-                    st.session_state[key] = DEFAULTS['legend_text_color']
-                elif key == 'floor_label_text_color_toggle':
-                    st.session_state[key] = DEFAULTS['floor_label_text_color']
-                elif key == 'occupancy_text_color_toggle':
-                    st.session_state[key] = DEFAULTS['occupancy_text_color']
-                else: # For year_X_text_color_toggle
-                    year_num = int(key.split('_')[1])
-                    st.session_state[key] = get_contrasting_text_color(YEAR_COLOR_DEFAULTS[year_num])
-
+            # No need to handle text_color_toggle keys as they are removed
 
     # Force a rerun to update the UI with reset values
     st.rerun()
@@ -223,8 +201,8 @@ with st.sidebar:
     )
     st.session_state.fig_height = fig_height
 
-    # Year-based color pickers with text color toggles
-    st.subheader("Year Colors & Text")
+    # Year-based color pickers (text color is now fixed to black)
+    st.subheader("Year Colors")
     st.write(f"**Base Year: {CURRENT_YEAR}**")
     
     year_labels = {
@@ -240,97 +218,34 @@ with st.sidebar:
     }
     
     for i in range(9):
-        col1, col2 = st.columns([0.6, 0.4])
-        with col1:
-            color = st.color_picker(
-                year_labels[i],
-                value=st.session_state[f'year_{i}_color'],
-                key=f'year_{i}_color_picker'
-            )
-            # Update background color in session state
-            st.session_state[f'year_{i}_color'] = color
-        with col2:
-            # Auto-suggest text color based on new background color
-            default_text_color = get_contrasting_text_color(color)
-            text_color = st.radio(
-                f"Text for {year_labels[i]}",
-                options=['black', 'white'],
-                index=0 if st.session_state[f'year_{i}_text_color'] == 'black' else 1,
-                key=f'year_{i}_text_color_toggle',
-                horizontal=True
-            )
-            st.session_state[f'year_{i}_text_color'] = text_color
+        color = st.color_picker(
+            year_labels[i],
+            value=st.session_state[f'year_{i}_color'],
+            key=f'year_{i}_color_picker'
+        )
+        st.session_state[f'year_{i}_color'] = color
+        # Text color is now fixed to black, no toggle needed
+        st.session_state[f'year_{i}_text_color'] = 'black'
 
 
-    # Special category colors with text color toggles
-    st.subheader("Special Categories & Text")
+    # Special category colors (text color is now fixed to black)
+    st.subheader("Special Categories")
     
-    col1, col2 = st.columns([0.6, 0.4])
-    with col1:
-        vacant_color = st.color_picker(
-            "Vacant Units Background",
-            value=st.session_state.vacant_color,
-            key='vacant_color_picker'
-        )
-        st.session_state.vacant_color = vacant_color
-    with col2:
-        default_text_color = get_contrasting_text_color(vacant_color)
-        vacant_text_color = st.radio(
-            "Vacant Text",
-            options=['black', 'white'],
-            index=0 if st.session_state.vacant_text_color == 'black' else 1,
-            key='vacant_text_color_toggle',
-            horizontal=True
-        )
-        st.session_state.vacant_text_color = vacant_text_color
-
-    col1, col2 = st.columns([0.6, 0.4])
-    with col1:
-        no_expiry_color = st.color_picker(
-            "No Expiry Background",
-            value=st.session_state.no_expiry_color,
-            key='no_expiry_color_picker'
-        )
-        st.session_state.no_expiry_color = no_expiry_color
-    with col2:
-        default_text_color = get_contrasting_text_color(no_expiry_color)
-        no_expiry_text_color = st.radio(
-            "No Expiry Text",
-            options=['black', 'white'],
-            index=0 if st.session_state.no_expiry_text_color == 'black' else 1,
-            key='no_expiry_text_color_toggle',
-            horizontal=True
-        )
-        st.session_state.no_expiry_text_color = no_expiry_text_color
-
-    # Global text color for Floor labels, Title, and Occupancy text
-    st.subheader("General Text Colors")
-    
-    floor_label_text_color = st.selectbox(
-        "Floor Labels & SF Color",
-        options=['black', 'white'],
-        index=0 if st.session_state.floor_label_text_color == 'black' else 1,
-        key='floor_label_text_color_toggle'
+    vacant_color = st.color_picker(
+        "Vacant Units Background",
+        value=st.session_state.vacant_color,
+        key='vacant_color_picker'
     )
-    st.session_state.floor_label_text_color = floor_label_text_color
+    st.session_state.vacant_color = vacant_color
+    st.session_state.vacant_text_color = 'black' # Fixed to black
 
-    occupancy_text_color = st.selectbox(
-        "Occupancy Percentage Color",
-        options=['black', 'white'],
-        index=0 if st.session_state.occupancy_text_color == 'black' else 1,
-        key='occupancy_text_color_toggle'
+    no_expiry_color = st.color_picker(
+        "No Expiry Background",
+        value=st.session_state.no_expiry_color,
+        key='no_expiry_color_picker'
     )
-    st.session_state.occupancy_text_color = occupancy_text_color
-
-    # Legend text color (for the legend labels themselves, not inside patches)
-    legend_text_color = st.selectbox(
-        "Legend Text Color",
-        options=['black', 'white'],
-        index=0 if st.session_state.legend_text_color == 'black' else 1,
-        key='legend_text_color_toggle'
-    )
-    st.session_state.legend_text_color = legend_text_color
-
+    st.session_state.no_expiry_color = no_expiry_color
+    st.session_state.no_expiry_text_color = 'black' # Fixed to black
 
     # Logo upload + controls
     st.subheader("Logo")
@@ -453,7 +368,7 @@ if excel_file_to_process is not None:
 
         ax.text(-0.5, y_pos, f"Floor {floor}\n{floor_sum} SF",
                         ha='right', va='center', fontsize=8, fontweight='bold',
-                        color=st.session_state.floor_label_text_color) # Apply floor label text color
+                        color='black') # Hardcoded to black
 
         for i, row in floor_data.iterrows():
             suite_sf = row['Square Footage']
@@ -475,25 +390,31 @@ if excel_file_to_process is not None:
 
             ax.text(x=x_pos + width/2, y=y_pos - 0.2,
                             s=line1, ha='center', va='center', fontsize=6,
-                            color=text_color) # Apply text color here
+                            color=text_color)
 
             ax.text(x=x_pos + width/2, y=y_pos,
                             s=line2_text, ha='center', va='center', fontsize=6,
-                            fontweight='bold', color=text_color) # Apply text color here
+                            fontweight='bold', color=text_color)
 
             ax.text(x=x_pos + width/2, y=y_pos + 0.2,
                             s=line3, ha='center', va='center', fontsize=6,
-                            color=text_color) # Apply text color here
+                            color=text_color)
 
             x_pos += width
 
         y_pos += height
 
-    ax.set_xlabel('Proportional Suite Width (normalized per floor)', color=st.session_state.floor_label_text_color) # Apply to x-label
+    ax.set_xlabel('Proportional Suite Width (normalized per floor)', color='black') # Hardcoded to black
     ax.set_yticks([])
     ax.set_xticks([])
-    ax.set_title(f'Stacking Plan - {st.session_state.building_name}', fontsize=14,
-                  fontweight='bold', color=st.session_state.floor_label_text_color) # Apply to title
+    
+    # Dynamic title based on building_name
+    display_title = st.session_state.building_name
+    if st.session_state.building_name == DEFAULTS['building_name']:
+        display_title = f'Stacking Plan - {st.session_state.building_name}'
+
+    ax.set_title(display_title, fontsize=14,
+                  fontweight='bold', color='black') # Hardcoded to black
     ax.invert_yaxis()
 
     for spine in ax.spines.values():
@@ -502,8 +423,6 @@ if excel_file_to_process is not None:
     ax.tick_params(bottom=False)
 
     # Adjust layout to make space for the legend on the right
-    # Rect argument: [left, bottom, right, top] in figure coordinates (0-1)
-    # 0.82 means the main plot area goes from 0 to 82% of the figure width, leaving 18% for the legend.
     plt.tight_layout(rect=[0, 0, 0.82, 1])
 
 
@@ -534,7 +453,7 @@ if excel_file_to_process is not None:
     # Add Occupancy Percentage Text
     ax.text(0.5, -0.05, f"Occupancy: {occupancy_percent_text}",
             transform=ax.transAxes, ha='center', va='top', fontsize=12,
-            fontweight='bold', color=st.session_state.occupancy_text_color) # Apply occupancy text color
+            fontweight='bold', color='black') # Hardcoded to black
 
     # Create legend with year-based colors
     legend_elements = []
@@ -588,10 +507,10 @@ if excel_file_to_process is not None:
         legend_elements.append(mpatches.Patch(facecolor=st.session_state.no_expiry_color, edgecolor='black', label='No Expiry'))
 
     # Modified legend placement: to the right of the chart
-    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5), # (x, y) relative to axes. (1.02, 0.5) is just outside the right edge, centered vertically.
-              fontsize=10, # Adjusted font size for side legend
+    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5),
+              fontsize=10,
               facecolor='none', edgecolor='none',
-              labelcolor=st.session_state.legend_text_color) # Apply global legend text color
+              labelcolor='black') # Hardcoded to black
 
     st.pyplot(fig)
 
