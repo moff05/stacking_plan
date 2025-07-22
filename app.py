@@ -415,7 +415,7 @@ if excel_file_to_process is not None:
 
     plt.tight_layout()
 
-    # Add logo with percentage-based positioning
+    # Add logo with corrected percentage-based positioning
     if logo_file_to_display is not None:
         logo = Image.open(logo_file_to_display)
 
@@ -430,35 +430,40 @@ if excel_file_to_process is not None:
 
         logo = logo.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-        bbox = ax.get_position()
+        # Get figure dimensions in pixels
         fig_width_px = fig.get_figwidth() * fig.dpi
         fig_height_px = fig.get_figheight() * fig.dpi
 
-        chart_left_px = bbox.x0 * fig_width_px
-        chart_right_px = bbox.x1 * fig_width_px
-        chart_bottom_px = bbox.y0 * fig_height_px
-        chart_top_px = bbox.y1 * fig_height_px
-        chart_width_px = chart_right_px - chart_left_px
-        chart_height_px = chart_top_px - chart_bottom_px
-
+        # Calculate logo position based on percentages
+        # X position (0% = left edge, 100% = right edge)
         if st.session_state.logo_x_percent <= 5:
-            logo_x_px = int(chart_left_px)
+            # Left edge
+            logo_x_px = 10  # Small margin from edge
         elif st.session_state.logo_x_percent >= 95:
-            logo_x_px = int(chart_right_px - logo.size[0])
+            # Right edge
+            logo_x_px = fig_width_px - logo.size[0] - 10  # Small margin from edge
         else:
-            logo_x_px = int(chart_left_px + (st.session_state.logo_x_percent / 100) * chart_width_px - logo.size[0] / 2)
-        
-        if st.session_state.logo_y_percent <= 5:
-            logo_y_px = int(chart_bottom_px)
-        elif st.session_state.logo_y_percent >= 95:
-            logo_y_px = int(chart_top_px - logo.size[1])
-        else:
-            logo_y_px = int(chart_bottom_px + (st.session_state.logo_y_percent / 100) * chart_height_px - logo.size[1] / 2)
-        
-        logo_x_px = max(int(chart_left_px), min(logo_x_px, int(chart_right_px - logo.size[0])))
-        logo_y_px = max(int(chart_bottom_px), min(logo_y_px, int(chart_top_px - logo.size[1])))
+            # Percentage-based positioning
+            logo_x_px = (st.session_state.logo_x_percent / 100) * fig_width_px - logo.size[0] / 2
 
-        fig.figimage(logo, xo=logo_x_px, yo=logo_y_px, alpha=1, zorder=10)
+        # Y position (0% = bottom, 100% = top)
+        # Note: figimage uses bottom-left origin, so we need to flip Y
+        if st.session_state.logo_y_percent <= 5:
+            # Bottom edge
+            logo_y_px = 10  # Small margin from edge
+        elif st.session_state.logo_y_percent >= 95:
+            # Top edge
+            logo_y_px = fig_height_px - logo.size[1] - 10  # Small margin from edge
+        else:
+            # Percentage-based positioning
+            logo_y_px = (st.session_state.logo_y_percent / 100) * fig_height_px - logo.size[1] / 2
+        
+        # Ensure logo stays within figure bounds
+        logo_x_px = max(0, min(logo_x_px, fig_width_px - logo.size[0]))
+        logo_y_px = max(0, min(logo_y_px, fig_height_px - logo.size[1]))
+
+        # Add logo to figure
+        fig.figimage(logo, xo=int(logo_x_px), yo=int(logo_y_px), alpha=1, zorder=10)
 
     # Add Occupancy Percentage Text
     ax.text(0.5, -0.05, f"Occupancy: {occupancy_percent_text}",
