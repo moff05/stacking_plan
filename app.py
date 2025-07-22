@@ -36,6 +36,7 @@ DEFAULTS = {
     'logo_y_percent': 98,
     'logo_size': 200,
     'building_name': "My Building",
+    'font_color': 'black',  # Default to black font
     'excel_file_content': None,
     'excel_file_name': None,
     'logo_file_content': None,
@@ -55,7 +56,7 @@ def reset_settings():
     """Reset all settings to their default values while preserving uploaded files"""
     # Settings to reset (exclude file-related keys)
     settings_to_reset = ['fig_width', 'fig_height', 'logo_x_percent', 'logo_y_percent', 
-                        'logo_size', 'building_name'] + [f'year_{i}_color' for i in range(9)]
+                        'logo_size', 'building_name', 'font_color'] + [f'year_{i}_color' for i in range(9)]
 
     # Reset the actual session state values
     for setting in settings_to_reset:
@@ -63,7 +64,7 @@ def reset_settings():
 
     # Also reset the widget keys to force UI update
     widget_keys_to_reset = (['fig_width_slider', 'fig_height_slider', 'logo_x_slider', 
-                           'logo_y_slider', 'logo_size_slider', 'building_name_input'] + 
+                           'logo_y_slider', 'logo_size_slider', 'building_name_input', 'font_color_toggle'] + 
                           [f'year_{i}_color_picker' for i in range(9)])
 
     for key in widget_keys_to_reset:
@@ -85,6 +86,8 @@ def reset_settings():
                     st.session_state[key] = DEFAULTS['logo_size']
             elif key == 'building_name_input':
                 st.session_state[key] = DEFAULTS['building_name']
+            elif key == 'font_color_toggle':
+                st.session_state[key] = DEFAULTS['font_color']
 
     # Force a rerun to update the UI with reset values
     st.rerun()
@@ -169,6 +172,16 @@ with st.sidebar:
             key=f'year_{i}_color_picker'
         )
         st.session_state[f'year_{i}_color'] = color
+
+    # Font color toggle
+    st.subheader("Text Settings")
+    font_color = st.selectbox(
+        "Font Color",
+        options=['black', 'white'],
+        index=0 if st.session_state.font_color == 'black' else 1,
+        key='font_color_toggle'
+    )
+    st.session_state.font_color = font_color
 
     # Logo upload + controls
     st.subheader("Logo")
@@ -326,7 +339,8 @@ if excel_file_to_process is not None:
         x_pos = 0
 
         ax.text(-0.5, y_pos, f"Floor {floor}\n{floor_sum} SF",
-                ha='right', va='center', fontsize=8, fontweight='bold')
+                ha='right', va='center', fontsize=8, fontweight='bold', 
+                color=st.session_state.font_color)
 
         for i, row in floor_data.iterrows():
             suite_sf = row['Square Footage']
@@ -346,22 +360,26 @@ if excel_file_to_process is not None:
             line3 = f"{suite_sf:,} SF | {expiry}"
 
             ax.text(x=x_pos + width/2, y=y_pos - 0.2,
-                    s=line1, ha='center', va='center', fontsize=6)
+                    s=line1, ha='center', va='center', fontsize=6, 
+                    color=st.session_state.font_color)
 
             ax.text(x=x_pos + width/2, y=y_pos,
-                    s=line2_text, ha='center', va='center', fontsize=6, fontweight='bold')
+                    s=line2_text, ha='center', va='center', fontsize=6, 
+                    fontweight='bold', color=st.session_state.font_color)
 
             ax.text(x=x_pos + width/2, y=y_pos + 0.2,
-                    s=line3, ha='center', va='center', fontsize=6)
+                    s=line3, ha='center', va='center', fontsize=6,
+                    color=st.session_state.font_color)
 
             x_pos += width
 
         y_pos += height
 
-    ax.set_xlabel('Proportional Suite Width (normalized per floor)')
+    ax.set_xlabel('Proportional Suite Width (normalized per floor)', color=st.session_state.font_color)
     ax.set_yticks([])
     ax.set_xticks([])
-    ax.set_title(f'Stacking Plan - {st.session_state.building_name}', fontsize=14, fontweight='bold')
+    ax.set_title(f'Stacking Plan - {st.session_state.building_name}', fontsize=14, 
+                 fontweight='bold', color=st.session_state.font_color)
     ax.invert_yaxis()
 
     for spine in ax.spines.values():
@@ -418,7 +436,8 @@ if excel_file_to_process is not None:
 
     # Add Occupancy Percentage Text
     ax.text(0.5, -0.05, f"Occupancy: {occupancy_percent_text}",
-            transform=ax.transAxes, ha='center', va='top', fontsize=12, fontweight='bold')
+            transform=ax.transAxes, ha='center', va='top', fontsize=12, 
+            fontweight='bold', color=st.session_state.font_color)
 
     # Create legend with year-based colors
     legend_elements = []
@@ -468,7 +487,9 @@ if excel_file_to_process is not None:
         legend_elements.append(mpatches.Patch(facecolor='#1f77b4', edgecolor='black', label='No Expiry'))
 
     ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.15),
-              ncol=len(legend_elements), fontsize=12)
+              ncol=len(legend_elements), fontsize=12, 
+              facecolor='none', edgecolor='none', 
+              labelcolor=st.session_state.font_color)
 
     st.pyplot(fig)
 
