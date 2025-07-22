@@ -9,7 +9,7 @@ from PIL import Image
 from datetime import datetime
 
 # -----------------------------------
-# Helper function to determine contrasting text color
+# Helper function to determine contrasting text color (Still useful for reset logic)
 # -----------------------------------
 def get_contrasting_text_color(hex_color):
     """
@@ -53,7 +53,7 @@ YEAR_COLOR_DEFAULTS = {
     3: "#00FF00",    # +3 = Green
     4: "#ADD8E6",    # +4 = Light Blue
     5: "#800080",    # +5 = Purple
-    6: "#0000FF",    # +6 = Bright Blue (changed from #000080)
+    6: "#0000FF",    # +6 = Bright Blue
     7: "#A52A2A",    # +7 = Brown
     8: "#808080"     # +8 or more = Gray
 }
@@ -71,10 +71,10 @@ DEFAULTS = {
     'logo_file_content': None,
     'logo_file_type': None,
     **{f'year_{i}_color': color for i, color in YEAR_COLOR_DEFAULTS.items()},
-    # Initialize text colors based on contrast for toggles
-    **{f'year_{i}_text_color': get_contrasting_text_color(color) for i, color in YEAR_COLOR_DEFAULTS.items()},
-    'vacant_text_color': get_contrasting_text_color('#d3d3d3'),
-    'no_expiry_text_color': get_contrasting_text_color('#1f77b4'),
+    # Initialize ALL text colors to 'black'
+    **{f'year_{i}_text_color': 'black' for i in range(9)},
+    'vacant_text_color': 'black',
+    'no_expiry_text_color': 'black',
 }
 
 # Initialize ALL session state variables with their defaults if they don't exist
@@ -98,14 +98,13 @@ def reset_settings():
     for setting in settings_to_reset:
         if setting in DEFAULTS: # Ensure default exists for the setting
             st.session_state[setting] = DEFAULTS[setting]
-        else: # Handle text colors that might not have a direct default in DEFAULTS
+        else: # For text colors, ensure they reset to 'black' or their contrast default
             if 'year_' in setting and '_text_color' in setting:
-                year_num = int(setting.split('_')[1])
-                st.session_state[setting] = get_contrasting_text_color(YEAR_COLOR_DEFAULTS[year_num])
+                st.session_state[setting] = 'black' # Reset year text colors to black
             elif setting == 'vacant_text_color':
-                st.session_state[setting] = get_contrasting_text_color(DEFAULTS['vacant_color'])
+                st.session_state[setting] = 'black' # Reset vacant text color to black
             elif setting == 'no_expiry_text_color':
-                st.session_state[setting] = get_contrasting_text_color(DEFAULTS['no_expiry_color'])
+                st.session_state[setting] = 'black' # Reset no expiry text color to black
 
 
     # Also reset the widget keys to force UI update
@@ -136,13 +135,9 @@ def reset_settings():
             elif key == 'building_name_input':
                 st.session_state[key] = DEFAULTS['building_name']
             elif 'text_color_toggle' in key:
-                if key == 'vacant_text_color_toggle':
-                    st.session_state[key] = get_contrasting_text_color(DEFAULTS['vacant_color'])
-                elif key == 'no_expiry_text_color_toggle':
-                    st.session_state[key] = get_contrasting_text_color(DEFAULTS['no_expiry_color'])
-                else: # For year_X_text_color_toggle
-                    year_num = int(key.split('_')[1])
-                    st.session_state[key] = get_contrasting_text_color(YEAR_COLOR_DEFAULTS[year_num])
+                # Force these toggles to 'black' when reset
+                st.session_state[key] = 'black'
+
 
     # Force a rerun to update the UI with reset values
     st.rerun()
@@ -236,16 +231,17 @@ with st.sidebar:
     }
     
     for i in range(9):
+        st.markdown(f"**Box Color {year_labels[i]}**") # New header for box color
         col1, col2 = st.columns([0.6, 0.4])
         with col1:
             color = st.color_picker(
-                year_labels[i],
+                f"Color for {year_labels[i]}", # Label inside picker
                 value=st.session_state[f'year_{i}_color'],
-                key=f'year_{i}_color_picker'
+                key=f'year_{i}_color_picker',
+                label_visibility="collapsed" # Hide label of color picker itself
             )
             st.session_state[f'year_{i}_color'] = color
         with col2:
-            # Simplified label for text color radio
             text_color = st.radio(
                 "Text Color", # Simplified label
                 options=['black', 'white'],
@@ -259,16 +255,17 @@ with st.sidebar:
     # Special category colors with text color toggles
     st.subheader("Special Categories & Text")
     
+    st.markdown("**Box Color Vacant Units**")
     col1, col2 = st.columns([0.6, 0.4])
     with col1:
         vacant_color = st.color_picker(
-            "Vacant Units Background",
+            "Color for Vacant Units", # Label inside picker
             value=st.session_state.vacant_color,
-            key='vacant_color_picker'
+            key='vacant_color_picker',
+            label_visibility="collapsed"
         )
         st.session_state.vacant_color = vacant_color
     with col2:
-        # Simplified label for vacant text color
         vacant_text_color = st.radio(
             "Text Color", # Simplified label
             options=['black', 'white'],
@@ -278,16 +275,17 @@ with st.sidebar:
         )
         st.session_state.vacant_text_color = vacant_text_color
 
+    st.markdown("**Box Color No Expiry**")
     col1, col2 = st.columns([0.6, 0.4])
     with col1:
         no_expiry_color = st.color_picker(
-            "No Expiry Background",
+            "Color for No Expiry", # Label inside picker
             value=st.session_state.no_expiry_color,
-            key='no_expiry_color_picker'
+            key='no_expiry_color_picker',
+            label_visibility="collapsed"
         )
         st.session_state.no_expiry_color = no_expiry_color
     with col2:
-        # Simplified label for no expiry text color
         no_expiry_text_color = st.radio(
             "Text Color", # Simplified label
             options=['black', 'white'],
